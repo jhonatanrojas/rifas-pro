@@ -118,38 +118,46 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 3. Crear tickets disponibles sólo para una rifa (para que no tarde demasiado el seeder)
-        $this->command->info('Generating 500 tickets for iPhone Raffle (Demo)...');
-        // Para mejorar performance, hacemos insert masivo en lotes de 100
-        $ticketsCount = Ticket::where('raffle_id', $rafflePhone->id)->count();
-        if ($ticketsCount === 0) {
-            $ticketData = [];
-            for ($i = 1; $i <= $rafflePhone->total_tickets; $i++) {
-                $ticketData[] = [
-                    'raffle_id' => $rafflePhone->id,
-                    'number' => $i,
-                    'status' => 'available',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
+        $raffles = [$raffleCar, $rafflePhone, $rafflePS5];
 
-                if ($i % 100 === 0) {
+        foreach ($raffles as $raffle) {
+            $this->command->info("Generating {$raffle->total_tickets} tickets for '{$raffle->title}'...");
+            $ticketsCount = Ticket::where('raffle_id', $raffle->id)->count();
+            if ($ticketsCount === 0) {
+                $ticketData = [];
+                for ($i = 1; $i <= $raffle->total_tickets; $i++) {
+                    $ticketData[] = [
+                        'raffle_id' => $raffle->id,
+                        'number' => $i,
+                        'status' => 'available',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+
+                    if ($i % 500 === 0) {
+                        Ticket::insert($ticketData);
+                        $ticketData = [];
+                    }
+                }
+                if (count($ticketData) > 0) {
                     Ticket::insert($ticketData);
-                    $ticketData = [];
+                }
+                
+                // Simular alguos tickets vendidos al azar para mostrar que hay actividad
+                $soldNumbers = [7, 13, 100, 255];
+                // Filtrar por si la cantidad total es menor
+                $soldNumbers = array_filter($soldNumbers, fn($n) => $n <= $raffle->total_tickets);
+                
+                if (!empty($soldNumbers)) {
+                    Ticket::where('raffle_id', $raffle->id)
+                        ->whereIn('number', $soldNumbers)
+                        ->update([
+                            'status' => 'sold',
+                            'user_id' => $user1->id,
+                        ]);
+                    $raffle->increment('sold_count', count($soldNumbers));
                 }
             }
-            if (count($ticketData) > 0) {
-                Ticket::insert($ticketData);
-            }
-            
-            // Simular alguos tickets vendidos
-            Ticket::where('raffle_id', $rafflePhone->id)
-                ->whereIn('number', [7, 13, 100, 255])
-                ->update([
-                    'status' => 'sold',
-                    'user_id' => $user1->id,
-                ]);
-            $rafflePhone->increment('sold_count', 4);
         }
 
         // 4. Coupons
