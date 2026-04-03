@@ -9,6 +9,8 @@ Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
+        'featuredRaffles' => \App\Models\Raffle::active()->featured()->latest()->take(3)->get(),
+        'otherRaffles' => \App\Models\Raffle::active()->where('is_featured', false)->latest()->take(6)->get(),
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
     ]);
