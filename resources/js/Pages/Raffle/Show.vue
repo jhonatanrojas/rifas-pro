@@ -23,6 +23,7 @@ const selectedTickets = ref([])
 
 const raffleData = computed(() => props.raffle?.data ?? props.raffle ?? {})
 const raffleCombos = computed(() => props.combos?.length ? props.combos : (raffleData.value?.combos ?? []))
+const rafflePrizes = computed(() => raffleData.value?.prizes ?? [])
 
 const { days, hours, minutes, seconds } = useCountdown(raffleData.value?.draw_date)
 
@@ -171,6 +172,26 @@ function formatMoney(amount, currency = 'USD') {
                         </div>
                     </div>
 
+                    <div v-if="rafflePrizes.length > 0" class="bg-surface-light rounded-3xl p-6 sm:p-8 border border-surface-300/10 shadow-xl space-y-5">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Galería de premios</h3>
+                                <p class="text-surface-400 text-sm">Conoce todo lo que puedes ganar en esta rifa.</p>
+                            </div>
+                            <span class="text-xs text-brand-400 font-semibold uppercase tracking-widest">{{ rafflePrizes.length }} premio(s)</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div v-for="prize in rafflePrizes" :key="prize.id" class="rounded-2xl overflow-hidden border border-surface-300/10 bg-surface-lighter">
+                                <img v-if="prize.image_path" :src="prize.image_path" class="w-full h-44 object-cover" />
+                                <div class="p-4 space-y-2">
+                                    <p class="text-white font-bold">{{ prize.title }}</p>
+                                    <p v-if="prize.description" class="text-surface-400 text-sm leading-relaxed">{{ prize.description }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div v-if="tickets.length > 0" class="bg-surface-light rounded-3xl p-6 sm:p-8 border border-surface-300/10 shadow-xl space-y-5">
                         <div class="flex items-center justify-between gap-3">
                             <div>
@@ -187,6 +208,7 @@ function formatMoney(amount, currency = 'USD') {
                             :tickets="tickets"
                             :ticket-price="Number(raffleData.ticket_price)"
                             :currency="raffleData.currency"
+                            :number-digits="raffleData.number_digits || 4"
                             :max-selection="100"
                             @continue="isModalOpen = true"
                         />
@@ -263,6 +285,20 @@ function formatMoney(amount, currency = 'USD') {
                                     <p class="font-semibold text-white">{{ raffleData.total_tickets }} boletos</p>
                                 </div>
                             </li>
+                            <li v-if="raffleData.category" class="flex items-center gap-3">
+                                <span class="p-2 rounded-lg bg-surface-lighter"><svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg></span>
+                                <div>
+                                    <p class="text-xs text-surface-400">Categoría</p>
+                                    <p class="font-semibold text-white">{{ raffleData.category }}</p>
+                                </div>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="p-2 rounded-lg bg-surface-lighter"><svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"></path></svg></span>
+                                <div>
+                                    <p class="text-xs text-surface-400">Rango</p>
+                                    <p class="font-semibold text-white">{{ raffleData.number_range_label }}</p>
+                                </div>
+                            </li>
                             <li class="flex items-center gap-3">
                                 <span class="p-2 rounded-lg bg-surface-lighter"><svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg></span>
                                 <div>
@@ -312,6 +348,9 @@ function formatMoney(amount, currency = 'USD') {
         <RaffleModal
             :is-open="isModalOpen"
             :raffle-id="raffleData.id"
+            :raffle="raffleData"
+            :tickets="tickets"
+            :combos="raffleCombos"
             :auth="$page.props.auth"
             :initial-selection="selectedTickets"
             @close="isModalOpen = false"

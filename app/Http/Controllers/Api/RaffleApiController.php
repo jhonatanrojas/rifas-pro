@@ -2,34 +2,36 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\ConfirmPaymentAction;
+use App\Exceptions\Domain\InsufficientTicketsException;
 use App\Http\Controllers\Controller;
-use App\Models\Raffle;
 use App\Http\Resources\ComboResource;
-use App\Http\Resources\TicketResource;
+use App\Http\Resources\OrderResource;
 use App\Http\Resources\RaffleResource;
+use App\Http\Resources\TicketResource;
+use App\Models\Raffle;
+use App\Services\TicketReservationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
-use App\Services\TicketReservationService;
-use App\Actions\ConfirmPaymentAction;
-use App\Exceptions\Domain\InsufficientTicketsException;
 
 class RaffleApiController extends Controller
 {
     public function index()
     {
-        return RaffleResource::collection(Raffle::active()->with('combos')->get());
+        return RaffleResource::collection(Raffle::active()->with(['combos', 'prizes'])->get());
     }
 
     public function show($id)
     {
-        $raffle = Raffle::with(['combos'])->findOrFail($id);
+        $raffle = Raffle::with(['combos', 'prizes'])->findOrFail($id);
         $raffle->combos->each->setRelation('raffle', $raffle);
-        
+
         return response()->json([
             'raffle' => (new RaffleResource($raffle))->resolve(request()),
-            'tickets' => TicketResource::collection($raffle->tickets()->orderBy('number', 'asc')->get())->resolve(request()),
+            'tickets' => TicketResource::collection($raffle->tickets()->with('raffle')->orderBy('number', 'asc')->get())->resolve(request()),
             'combos' => ComboResource::collection($raffle->combos)->resolve(request()),
         ]);
     }
@@ -50,10 +52,10 @@ class RaffleApiController extends Controller
         $status = $request->query('status');
 
         $tickets = $raffle->tickets()
-            ->when($q, function($query) use ($q) {
+            ->when($q, function ($query) use ($q) {
                 return $query->where('number', 'like', "%{$q}%");
             })
-            ->when($status, function($query) use ($status) {
+            ->when($status, function ($query) use ($status) {
                 return $query->where('status', $status);
             })
             ->limit(100)
@@ -63,7 +65,7 @@ class RaffleApiController extends Controller
     }
 
     public function purchase(
-        Request $request, 
+        Request $request,
         $id,
         TicketReservationService $reservationService,
         ConfirmPaymentAction $paymentAction
@@ -76,7 +78,7 @@ class RaffleApiController extends Controller
             'amount' => 'required|numeric',
             'payment_method' => 'required|string',
             'reference' => 'required|string',
-            'proof' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120' // max 5mb
+            'proof' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
         $raffle = Raffle::findOrFail($id);
@@ -85,14 +87,13 @@ class RaffleApiController extends Controller
         try {
             DB::beginTransaction();
 
-            // 1. User Management (Guest logic)
             if (!$user) {
                 $user = \App\Models\User::firstOrCreate(
                     ['email' => $request->email],
                     [
                         'name' => $request->name,
                         'phone' => $request->phone,
-                        'password' => Hash::make(Str::random(16))
+                        'password' => Hash::make(Str::random(16)),
                     ]
                 );
             } else {
@@ -102,7 +103,6 @@ class RaffleApiController extends Controller
                 }
             }
 
-            // 2. Preparar DTO de Reserva
             $quantity = (int) $request->quantity;
             $manualTickets = null;
             if ($request->has('manual_tickets') && $request->manual_tickets) {
@@ -120,10 +120,8 @@ class RaffleApiController extends Controller
                 manualTickets: $manualTickets
             );
 
-            // 3. Ejecutar Reserva
             $order = $reservationService->reserve($reserveDto);
 
-            // 4. Preparar DTO de Confirmación de Pago
             $paymentDto = new \App\DTOs\ConfirmPaymentDTO(
                 orderId: $order->id,
                 method: $request->payment_method,
@@ -133,25 +131,33 @@ class RaffleApiController extends Controller
                 receiptImage: $request->file('proof')
             );
 
-            // 5. Ejecutar Acción de Confirmar Pago
             $paymentAction->execute($paymentDto);
+
+            $order->loadMissing(['raffle', 'tickets', 'payment']);
+            $verificationUrl = URL::temporarySignedRoute('receipts.verify', now()->addDays(30), [
+                'order' => $order->id,
+            ]);
 
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Compra registrada y en verificación'
+                'message' => 'Tu pago fue recibido y se encuentra en revision.',
+                'verification_url' => $verificationUrl,
+                'tickets_url' => $request->user() ? route('purchases.index') : null,
+                'order' => (new OrderResource($order))->resolve($request),
             ]);
-
         } catch (InsufficientTicketsException $e) {
             DB::rollBack();
+
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
-                'message' => 'Error al procesar el pago: ' . $e->getMessage()
+                'message' => 'Error al procesar el pago: ' . $e->getMessage(),
             ], 500);
         }
     }

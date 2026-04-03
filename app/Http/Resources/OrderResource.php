@@ -14,6 +14,11 @@ class OrderResource extends JsonResource
             'status' => $this->status,
             'total' => (float) $this->total,
             'currency' => $this->currency,
+            'user' => [
+                'id' => $this->user?->id,
+                'name' => $this->user?->name,
+                'email' => $this->user?->email,
+            ],
             'raffle' => new RaffleResource($this->whenLoaded('raffle')),
             'tickets' => TicketResource::collection($this->whenLoaded('tickets')),
             'payment' => new PaymentResource($this->whenLoaded('payment')),

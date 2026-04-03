@@ -9,6 +9,18 @@ const props = defineProps({
     isOpen: Boolean,
     raffleId: Number,
     auth: Object,
+    raffle: {
+        type: Object,
+        default: null,
+    },
+    tickets: {
+        type: Array,
+        default: () => [],
+    },
+    combos: {
+        type: Array,
+        default: () => [],
+    },
     initialSelection: {
         type: Array,
         default: () => [],
@@ -28,6 +40,7 @@ const processing = ref(false)
 const raffle = ref(null)
 const tickets = ref([])
 const combos = ref([])
+const purchaseResult = ref(null)
 
 const selectionMode = ref('manual')
 const manualTickets = ref([])
@@ -46,7 +59,53 @@ const paymentForm = ref({
 })
 const paymentProof = ref(null)
 
+const paymentMethodLabels = {
+    zelle: 'Zelle',
+    pago_movil: 'Pago móvil',
+    binance: 'Binance',
+}
+
+function applyPayload(payload) {
+    raffle.value = payload?.raffle?.data ?? payload?.raffle ?? null
+    tickets.value = payload?.tickets?.data ?? payload?.tickets ?? []
+    combos.value = payload?.combos?.data ?? payload?.combos ?? raffle.value?.combos ?? []
+}
+
+async function loadRaffleData() {
+    if (props.raffle) {
+        applyPayload({
+            raffle: props.raffle,
+            tickets: props.tickets,
+            combos: props.combos,
+        })
+        resetState()
+        loading.value = false
+        return
+    }
+
+    if (!props.raffleId) {
+        loading.value = false
+        return
+    }
+
+    loading.value = true
+    try {
+        const response = await axios.get(`/api/raffles/${props.raffleId}`)
+        applyPayload(response.data)
+        resetState()
+    } catch (error) {
+        console.error(error)
+        toast.error('Error al cargar la informacion del sorteo.')
+        raffle.value = null
+        tickets.value = []
+        combos.value = []
+    } finally {
+        loading.value = false
+    }
+}
+
 function resetState() {
+    purchaseResult.value = null
     currentStep.value = props.initialSelection.length > 0
         ? Math.max(2, props.initialStep || 1)
         : (props.initialStep || 1)
@@ -70,24 +129,15 @@ function resetState() {
 }
 
 watch(() => props.isOpen, async (isOpen) => {
-    if (!isOpen || !props.raffleId) {
+    if (!isOpen) {
         resetState()
+        raffle.value = null
+        tickets.value = []
+        combos.value = []
         return
     }
 
-    loading.value = true
-    try {
-        const response = await axios.get(`/api/raffles/${props.raffleId}`)
-        raffle.value = response.data?.raffle?.data ?? response.data?.raffle ?? null
-        tickets.value = response.data?.tickets?.data ?? response.data?.tickets ?? []
-        combos.value = response.data?.combos?.data ?? response.data?.combos ?? raffle.value?.combos ?? []
-        resetState()
-    } catch (error) {
-        console.error(error)
-        toast.error('Error al cargar la informacion del sorteo.')
-    } finally {
-        loading.value = false
-    }
+    await loadRaffleData()
 })
 
 const availableTickets = computed(() => tickets.value.filter((ticket) => ticket.status === 'available'))
@@ -206,12 +256,19 @@ async function submitPurchase() {
             payload.append('manual_tickets', JSON.stringify(manualTickets.value))
         }
 
-        await axios.post(`/api/raffles/${raffle.value.id}/purchase`, payload)
+        const response = await axios.post(`/api/raffles/${raffle.value.id}/purchase`, payload)
 
-        toast.success('Compra registrada con exito.')
+        purchaseResult.value = response.data
+        toast.success(response.data?.message ?? 'Tu pago fue enviado a revision.')
         currentStep.value = 4
     } catch (error) {
         console.error(error)
+        const proofError = error?.response?.data?.errors?.proof?.[0]
+        if (proofError === 'validation.uploaded') {
+            toast.error('El comprobante supera el limite permitido por el servidor. La imagen se optimiza automaticamente, intenta subirla nuevamente.')
+            return
+        }
+
         toast.error('No se pudo procesar el pago. Intentalo de nuevo.')
     } finally {
         processing.value = false
@@ -222,22 +279,32 @@ function closeModal() {
     if (processing.value) return
     emit('close')
 }
+
+const purchasedOrder = computed(() => purchaseResult.value?.order ?? null)
+const verificationUrl = computed(() => purchaseResult.value?.verification_url ?? null)
+const ticketsUrl = computed(() => purchaseResult.value?.tickets_url ?? null)
+const purchasedTickets = computed(() => purchasedOrder.value?.tickets ?? [])
+const ticketsRedirectUrl = computed(() => route('purchases.index'))
+const loginUrl = computed(() => route('login', { redirect: ticketsRedirectUrl.value }))
+const registerUrl = computed(() => route('register', { redirect: ticketsRedirectUrl.value }))
+const recoverPasswordUrl = computed(() => route('password.request', { redirect: ticketsRedirectUrl.value }))
+const isGuestCheckout = computed(() => !props.auth?.user)
 </script>
 
 <template>
     <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-center justify-center">
-        <div class="fixed inset-0 bg-surface-dark/90 backdrop-blur-md transition-opacity" @click="closeModal"></div>
+        <div class="fixed inset-0 bg-surface/90 backdrop-blur-md transition-opacity" @click="closeModal"></div>
 
-        <div class="relative w-full max-w-5xl h-[95vh] md:h-[85vh] bg-surface-dark border border-surface-300/20 md:rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden transform transition-all mt-auto md:mt-0 animate-slide-up-modal">
-            <div v-if="loading" class="absolute inset-0 bg-surface-dark z-20 flex flex-col items-center justify-center">
+        <div class="relative w-full max-w-5xl h-[95vh] md:h-[85vh] bg-surface border border-surface-300/20 md:rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden transform transition-all mt-auto md:mt-0 animate-slide-up-modal">
+            <div v-if="loading" class="absolute inset-0 bg-surface z-20 flex flex-col items-center justify-center">
                 <svg class="animate-spin h-10 w-10 text-brand-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
             </div>
 
-            <div v-if="raffle && !loading" class="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
-                <div class="p-6 border-b border-surface-300/10 flex justify-between items-center sticky top-0 bg-surface-dark/95 backdrop-blur z-10">
+            <div v-else-if="raffle" class="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+                <div class="p-6 border-b border-surface-300/10 flex justify-between items-center sticky top-0 bg-surface/95 backdrop-blur z-10">
                     <div>
                         <span class="text-xs font-bold text-brand-400 tracking-wider uppercase">Paso {{ currentStep }} de 4</span>
                         <h2 class="text-xl font-bold text-white leading-tight">
@@ -269,13 +336,13 @@ function closeModal() {
                             <div class="mb-6 flex p-1 bg-surface-lighter rounded-xl">
                                 <button
                                     @click="selectionMode = 'manual'"
-                                    :class="[selectionMode === 'manual' ? 'bg-surface-dark text-brand-400 shadow' : 'text-surface-400 hover:text-white', 'flex-1 py-3 text-sm font-bold rounded-lg transition-all']"
+                                    :class="[selectionMode === 'manual' ? 'bg-surface text-brand-400 shadow' : 'text-surface-400 hover:text-white', 'flex-1 py-3 text-sm font-bold rounded-lg transition-all']"
                                 >
                                     Elegir yo
                                 </button>
                                 <button
                                     @click="selectMachine"
-                                    :class="[selectionMode === 'random' ? 'bg-surface-dark text-accent-neon shadow' : 'text-surface-400 hover:text-white', 'flex-1 py-3 text-sm font-bold rounded-lg transition-all']"
+                                    :class="[selectionMode === 'random' ? 'bg-surface text-accent-neon shadow' : 'text-surface-400 hover:text-white', 'flex-1 py-3 text-sm font-bold rounded-lg transition-all']"
                                 >
                                     Busqueda rapida
                                 </button>
@@ -287,7 +354,7 @@ function closeModal() {
                                 <p class="text-surface-400 mb-6 text-sm">Escoge cuantos numeros dejar a la suerte.</p>
 
                                 <div class="flex flex-wrap gap-2 justify-center mb-5">
-                                    <button v-for="qty in [1, 5, 10, 20]" :key="qty" @click="randomQuantity = String(qty)" class="px-4 py-2 rounded-xl bg-surface-dark border border-surface-300/10 text-white font-bold hover:border-brand-500 transition-colors">
+                                    <button v-for="qty in [1, 5, 10, 20]" :key="qty" @click="randomQuantity = String(qty)" class="px-4 py-2 rounded-xl bg-surface border border-surface-300/10 text-white font-bold hover:border-brand-500 transition-colors">
                                         {{ qty }}
                                     </button>
                                 </div>
@@ -306,6 +373,7 @@ function closeModal() {
                                     :tickets="tickets"
                                     :ticket-price="Number(raffle.ticket_price)"
                                     :currency="raffle.currency"
+                                    :number-digits="raffle.number_digits || 4"
                                     :max-selection="100"
                                     :show-summary="false"
                                 />
@@ -338,8 +406,15 @@ function closeModal() {
                         <div v-else-if="currentStep === 3" class="w-full max-w-md mx-auto pt-2">
                             <div class="space-y-5">
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <button @click="paymentForm.method = 'zelle'" :class="[paymentForm.method === 'zelle' ? 'border-brand-500 bg-brand-500/10 text-white' : 'border-surface-300/10 bg-surface-light text-surface-300', 'p-4 rounded-xl border-2 text-left transition-all']">Zelle</button>
-                                    <button @click="paymentForm.method = 'binance'" :class="[paymentForm.method === 'binance' ? 'border-brand-500 bg-brand-500/10 text-white' : 'border-surface-300/10 bg-surface-light text-surface-300', 'p-4 rounded-xl border-2 text-left transition-all']">Binance</button>
+                                    <button @click="paymentForm.method = 'zelle'" :class="[paymentForm.method === 'zelle' ? 'border-brand-500 bg-brand-500/10 text-white' : 'border-surface-300/10 bg-surface-light text-surface-300', 'p-4 rounded-xl border-2 text-left transition-all']">
+                                        {{ paymentMethodLabels.zelle }}
+                                    </button>
+                                    <button @click="paymentForm.method = 'pago_movil'" :class="[paymentForm.method === 'pago_movil' ? 'border-brand-500 bg-brand-500/10 text-white' : 'border-surface-300/10 bg-surface-light text-surface-300', 'p-4 rounded-xl border-2 text-left transition-all']">
+                                        {{ paymentMethodLabels.pago_movil }}
+                                    </button>
+                                    <button @click="paymentForm.method = 'binance'" :class="[paymentForm.method === 'binance' ? 'border-brand-500 bg-brand-500/10 text-white' : 'border-surface-300/10 bg-surface-light text-surface-300', 'p-4 rounded-xl border-2 text-left transition-all']">
+                                        {{ paymentMethodLabels.binance }}
+                                    </button>
                                 </div>
 
                                 <div>
@@ -353,11 +428,91 @@ function closeModal() {
                         </div>
 
                         <div v-else-if="currentStep === 4" class="w-full h-full flex flex-col items-center justify-center text-center p-8 animate-fade-in" style="min-height: 400px;">
-                            <div class="w-20 h-20 rounded-full bg-brand-500/10 flex items-center justify-center text-4xl mb-6">✓</div>
-                            <h3 class="text-2xl font-black text-white mb-2">Compra enviada</h3>
-                            <p class="text-surface-400 max-w-md">Recibimos tu solicitud y el comprobante fue adjuntado correctamente.</p>
+                            <div class="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center text-4xl mb-6">⏳</div>
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/20 mb-4">
+                                Pago en revision
+                            </span>
+                            <h3 class="text-2xl font-black text-white mb-2">Tu pago fue recibido</h3>
+                            <p class="text-surface-400 max-w-md">
+                                Nuestro equipo revisara tu comprobante. Puedes verificar el estado del pago y ver tus tickets comprados desde los enlaces de abajo.
+                            </p>
+
+                            <div v-if="isGuestCheckout" class="mt-6 max-w-xl rounded-2xl border border-brand-500/20 bg-brand-500/5 p-4 text-left">
+                                <h4 class="text-sm font-bold text-white">Compra hecha como invitado</h4>
+                                <p class="mt-1 text-sm text-surface-300">
+                                    Para ver el estado completo de tus tickets en tu cuenta, inicia sesión o crea una cuenta usando el mismo correo que usaste en la compra.
+                                </p>
+                            </div>
+
+                            <div v-if="purchasedTickets.length" class="mt-6 flex flex-wrap justify-center gap-2">
+                                <span
+                                    v-for="ticket in purchasedTickets"
+                                    :key="ticket.id"
+                                    class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold border bg-surface-lighter text-white border-surface-300/20"
+                                >
+                                    #{{ ticket.display_number || String(ticket.number).padStart(raffle.number_digits || 4, '0') }}
+                                </span>
+                            </div>
+
+                            <div class="mt-8 grid w-full max-w-md gap-3 sm:grid-cols-2">
+                                <a
+                                    v-if="verificationUrl"
+                                    :href="verificationUrl"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="btn-primary inline-flex justify-center text-sm"
+                                >
+                                    Ver estado del pago
+                                </a>
+                                <a
+                                    v-if="!isGuestCheckout && ticketsUrl"
+                                    :href="ticketsUrl"
+                                    class="btn-secondary inline-flex justify-center text-sm"
+                                >
+                                    Ver mis tickets
+                                </a>
+                            </div>
+
+                            <div v-if="isGuestCheckout" class="mt-3 grid w-full max-w-md gap-3 sm:grid-cols-2">
+                                <a :href="registerUrl" class="btn-secondary inline-flex justify-center text-sm">
+                                    Registrarse
+                                </a>
+                                <a :href="loginUrl" class="btn-secondary inline-flex justify-center text-sm">
+                                    Iniciar sesión
+                                </a>
+                            </div>
+
+                            <div v-if="isGuestCheckout" class="mt-3">
+                                <a
+                                    :href="recoverPasswordUrl"
+                                    class="inline-flex items-center justify-center text-sm font-semibold text-brand-300 hover:text-white underline underline-offset-4"
+                                >
+                                    Recuperar contraseña
+                                </a>
+                            </div>
+
+                            <p class="mt-4 text-xs text-surface-500 max-w-md">
+                                El enlace de verificacion muestra el detalle de tu orden, el estado del pago y los tickets asignados.
+                            </p>
+
+                            <button @click="closeModal" class="mt-6 text-sm font-semibold text-surface-300 hover:text-white">
+                                Cerrar
+                            </button>
                         </div>
                     </transition>
+                </div>
+            </div>
+
+            <div v-else class="flex-1 flex items-center justify-center p-8 text-center">
+                <div class="max-w-md space-y-4">
+                    <div class="w-16 h-16 mx-auto rounded-full bg-brand-500/10 flex items-center justify-center text-brand-400 text-2xl font-black">!</div>
+                    <h2 class="text-2xl font-bold text-white">No pudimos cargar el checkout</h2>
+                    <p class="text-surface-400">
+                        El panel no recibio los datos iniciales del sorteo. Puedes reintentar la carga o volver a abrir la pagina.
+                    </p>
+                    <button @click="loadRaffleData" class="btn-primary w-full justify-center">
+                        Reintentar carga
+                    </button>
                 </div>
             </div>
 

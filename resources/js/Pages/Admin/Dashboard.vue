@@ -15,6 +15,21 @@ const props = defineProps({
     salesByMethod: Array,
 });
 
+const paymentMethodLabels = {
+    zelle: 'Zelle',
+    pago_movil: 'Pago móvil',
+    paypal: 'PayPal',
+    stripe: 'Stripe',
+    binance: 'Binance',
+};
+
+const paymentStatusLabels = {
+    paid: 'Pagado',
+    pending: 'Pendiente',
+    approved: 'Aprobado',
+    rejected: 'Rechazado',
+};
+
 const stats = ref(props.dailyStats);
 const orders = ref(props.recentOrders);
 
@@ -44,7 +59,7 @@ const chartOptions = {
 };
 
 const chartSeries = [{
-    name: 'Sales (USD)',
+    name: 'Ventas (USD)',
     data: props.salesHistory.map((h) => h.amount),
 }];
 
@@ -59,10 +74,10 @@ const donutOptions = {
 const donutSeries = props.rafflesProgress.map((r) => r.progress);
 
 const methodChartOptions = computed(() => ({
-    labels: props.salesByMethod.map((entry) => entry.method),
+    labels: props.salesByMethod.map((entry) => paymentMethodLabels[entry.method] ?? entry.method),
     legend: { position: 'bottom', labels: { colors: '#fff' } },
     theme: { mode: 'dark' },
-    colors: ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'],
+    colors: ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'],
     plotOptions: { pie: { donut: { size: '70%' } } },
 }));
 
@@ -70,65 +85,67 @@ const methodChartSeries = computed(() => props.salesByMethod.map((entry) => Numb
 </script>
 
 <template>
-    <Head title="Admin Dashboard" />
+    <Head title="Panel administrativo" />
 
     <AdminLayout>
         <template #header>Dashboard Administrativo</template>
         <template #headerBadge>
-            <BaseBadge variant="warning" size="sm">{{ stats.pending_reviews }} pending reviews</BaseBadge>
+            <BaseBadge variant="warning" size="sm">{{ stats.pending_reviews }} revisiones pendientes</BaseBadge>
         </template>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div class="glass-panel p-6 rounded-[2rem] border-l-4 border-brand-500">
-                <p class="text-xs font-black uppercase text-zinc-500 mb-1">Sales Today (USD)</p>
+                <p class="text-xs font-black uppercase text-zinc-500 mb-1">Ventas de hoy (USD)</p>
                 <div class="flex items-center justify-between">
                     <p class="text-3xl font-black">${{ stats.sales_usd }}</p>
                     <div class="p-2 bg-brand-500/10 rounded-xl text-brand-400">
-                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3 1.343 3 3-1.343 3-3 3m0-12c1.657 0 3 1.343 3 3s-1.343 3-3 3-3-1.343-3-3 1.343-3 3-3m0 0V4m0 16v-4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3 1.343 3 3-1.343 3-3 3m0-12c1.657 0 3 1.343 3 3s-1.343-3-3-3-3-1.343-3-3 1.343-3 3-3m0 0V4m0 16v-4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
                     </div>
                 </div>
             </div>
 
             <div class="glass-panel p-6 rounded-[2rem] border-l-4 border-accent-neon">
-                <p class="text-xs font-black uppercase text-zinc-500 mb-1">Sales Today (VES)</p>
+                <p class="text-xs font-black uppercase text-zinc-500 mb-1">Ventas de hoy (VES)</p>
                 <p class="text-3xl font-black">Bs.{{ stats.sales_ves }}</p>
             </div>
 
             <div class="glass-panel p-6 rounded-[2rem] border-l-4 border-blue-500">
-                <p class="text-xs font-black uppercase text-zinc-500 mb-1">Tickets Sold</p>
+                <p class="text-xs font-black uppercase text-zinc-500 mb-1">Tickets vendidos</p>
                 <p class="text-3xl font-black">{{ stats.tickets_sold_today }}</p>
             </div>
 
             <div class="glass-panel p-6 rounded-[2rem] border-l-4" :class="stats.pending_reviews > 0 ? 'border-red-500 animate-pulse' : 'border-zinc-700'">
-                <p class="text-xs font-black uppercase text-zinc-500 mb-1">Pending Reviews</p>
+                <p class="text-xs font-black uppercase text-zinc-500 mb-1">Revisiones pendientes</p>
                 <div class="flex items-center gap-4">
                     <p class="text-3xl font-black">{{ stats.pending_reviews }}</p>
-                    <BaseBadge v-if="stats.pending_reviews > 0" variant="error" size="sm">Urgent</BaseBadge>
+                    <BaseBadge v-if="stats.pending_reviews > 0" variant="error" size="sm">Urgente</BaseBadge>
                 </div>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <div class="glass-panel p-8 rounded-[2rem]">
-                <h3 class="text-lg font-black uppercase tracking-widest mb-6">Sales Trend (7d)</h3>
+                <h3 class="text-lg font-black uppercase tracking-widest mb-6">Tendencia de ventas (7 días)</h3>
                 <VueApexCharts height="300" :options="chartOptions" :series="chartSeries" />
             </div>
 
             <div class="glass-panel p-8 rounded-[2rem]">
-                <h3 class="text-lg font-black uppercase tracking-widest mb-6">Active Raffle Progress</h3>
+                <h3 class="text-lg font-black uppercase tracking-widest mb-6">Progreso de rifas activas</h3>
                 <VueApexCharts height="300" type="donut" :options="donutOptions" :series="donutSeries" />
             </div>
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
             <div class="glass-panel p-8 rounded-[2rem]">
-                <h3 class="text-lg font-black uppercase tracking-widest mb-6">Sales by Method</h3>
+                <h3 class="text-lg font-black uppercase tracking-widest mb-6">Ventas por método</h3>
                 <VueApexCharts height="280" type="donut" :options="methodChartOptions" :series="methodChartSeries" />
             </div>
 
             <div class="glass-panel rounded-[2rem] overflow-hidden">
                 <div class="p-6 border-b border-white/5">
-                    <h3 class="text-lg font-black uppercase tracking-widest">Pending Queue</h3>
+                    <h3 class="text-lg font-black uppercase tracking-widest">Cola pendiente</h3>
                 </div>
                 <div class="divide-y divide-white/5">
                     <div v-for="payment in pendingPayments" :key="payment.id" class="p-6">
@@ -140,13 +157,13 @@ const methodChartSeries = computed(() => props.salesByMethod.map((entry) => Numb
                             <BaseBadge variant="warning" size="sm">{{ payment.amount }} {{ payment.currency }}</BaseBadge>
                         </div>
                     </div>
-                    <div v-if="!pendingPayments.length" class="p-6 text-sm text-zinc-500">No pending payments right now.</div>
+                    <div v-if="!pendingPayments.length" class="p-6 text-sm text-zinc-500">No hay pagos pendientes por ahora.</div>
                 </div>
             </div>
 
             <div class="glass-panel rounded-[2rem] overflow-hidden">
                 <div class="p-6 border-b border-white/5">
-                    <h3 class="text-lg font-black uppercase tracking-widest">Top Affiliates</h3>
+                    <h3 class="text-lg font-black uppercase tracking-widest">Afiliados destacados</h3>
                 </div>
                 <div class="divide-y divide-white/5">
                     <div v-for="affiliate in topAffiliates" :key="affiliate.id" class="p-6 flex items-center justify-between gap-4">
@@ -156,28 +173,28 @@ const methodChartSeries = computed(() => props.salesByMethod.map((entry) => Numb
                         </div>
                         <div class="text-right">
                             <div class="font-black text-brand-400">{{ affiliate.total_earned }}</div>
-                            <div class="text-[10px] uppercase tracking-widest text-zinc-500">earned</div>
+                            <div class="text-[10px] uppercase tracking-widest text-zinc-500">Ganado</div>
                         </div>
                     </div>
-                    <div v-if="!topAffiliates.length" class="p-6 text-sm text-zinc-500">No affiliates yet.</div>
+                    <div v-if="!topAffiliates.length" class="p-6 text-sm text-zinc-500">Aún no hay afiliados.</div>
                 </div>
             </div>
         </div>
 
         <div class="glass-panel rounded-[2rem] overflow-hidden">
             <div class="p-8 flex items-center justify-between border-b border-white/5">
-                <h3 class="text-lg font-black uppercase tracking-widest">Latest Orders</h3>
-                <Link :href="route('admin.payments.index')" class="text-xs font-bold text-brand-400 hover:underline">View all →</Link>
+                <h3 class="text-lg font-black uppercase tracking-widest">Últimos pedidos</h3>
+                <Link :href="route('admin.payments.index')" class="text-xs font-bold text-brand-400 hover:underline">Ver todo →</Link>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
                         <tr class="text-zinc-500 text-[10px] font-black uppercase tracking-widest bg-white/2">
-                            <th class="px-8 py-4">User</th>
-                            <th class="px-8 py-4">Raffle</th>
-                            <th class="px-8 py-4">Amount</th>
-                            <th class="px-8 py-4">Date</th>
-                            <th class="px-8 py-4">Status</th>
+                            <th class="px-8 py-4">Usuario</th>
+                            <th class="px-8 py-4">Rifa</th>
+                            <th class="px-8 py-4">Monto</th>
+                            <th class="px-8 py-4">Fecha</th>
+                            <th class="px-8 py-4">Estado</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
@@ -191,7 +208,7 @@ const methodChartSeries = computed(() => props.salesByMethod.map((entry) => Numb
                             <td class="px-8 py-5 text-sm text-zinc-400">{{ new Date(order.created_at).toLocaleString() }}</td>
                             <td class="px-8 py-5">
                                 <BaseBadge :variant="order.status === 'paid' ? 'success' : 'warning'">
-                                    {{ order.status }}
+                                    {{ paymentStatusLabels[order.status] ?? order.status }}
                                 </BaseBadge>
                             </td>
                         </tr>

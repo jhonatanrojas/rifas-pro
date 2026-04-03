@@ -7,9 +7,11 @@ import BaseButton from '@/Components/Base/BaseButton.vue';
 const page = usePage();
 const showConsent = ref(false);
 const isSubscribing = ref(false);
+const DEDUP_KEY = 'push_consent_dismissed_v1';
 
 const checkSubscription = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (localStorage.getItem(DEDUP_KEY) === '1') return;
     
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
@@ -53,6 +55,7 @@ const subscribe = async () => {
         });
 
         await axios.post(route('push.update'), subscription);
+        localStorage.setItem(DEDUP_KEY, '1');
         showConsent.value = false;
     } catch (error) {
         console.error('Error subscribing to push notifications:', error);
@@ -67,6 +70,11 @@ onMounted(() => {
         setTimeout(checkSubscription, 3000);
     }
 });
+
+function dismiss() {
+    localStorage.setItem(DEDUP_KEY, '1');
+    showConsent.value = false;
+}
 </script>
 
 <template>
@@ -92,7 +100,7 @@ onMounted(() => {
                         
                         <div class="flex gap-3">
                              <BaseButton @click="subscribe" :loading="isSubscribing" variant="neon" size="sm" class="flex-1">Activar</BaseButton>
-                             <BaseButton @click="showConsent = false" variant="outline" size="sm">Después</BaseButton>
+                             <BaseButton @click="dismiss" variant="outline" size="sm">Después</BaseButton>
                         </div>
                     </div>
                 </div>

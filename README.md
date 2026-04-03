@@ -26,3 +26,18 @@ La plataforma incluye un sistema de sorteo aleatorio verificable (SHA-256) con n
 
 ## 📱 PWA
 La aplicación es una PWA instalable con soporte offline y notificaciones nativas en dispositivos móviles.
+
+## Produccion
+
+1. Copia las variables de entorno desde `.env.example`.
+2. Ejecuta `composer install` y `npm install`.
+3. Genera claves de Web Push con `php artisan webpush:vapid`.
+4. Ejecuta `php artisan migrate --seed`.
+5. Compila assets con `npm run build`.
+6. Arranca workers y scheduler en produccion.
+
+## Documentacion tecnica
+
+- [Arquitectura](./ARQUITECTURA.md)
+- [Config PWA](./PWA_SETUP.md)
+- Plan de tareas principal: `F:\rifas_saas\PLAN_TAREAS_RIFAS_SAAS.md`

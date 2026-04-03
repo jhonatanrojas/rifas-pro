@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\ReviewPaymentAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BulkReviewPaymentsRequest;
 use App\Http\Requests\ReviewPaymentRequest;
 use App\Models\Raffle;
 use App\Models\Payment;
@@ -75,5 +76,19 @@ class AdminPaymentController extends Controller
 
         return redirect()->route('admin.payments.index')
             ->with('success', 'Pago revisado correctamente.');
+    }
+
+    public function bulkReview(BulkReviewPaymentsRequest $request, ReviewPaymentAction $action)
+    {
+        $payments = Payment::with(['order.user', 'order.raffle', 'order.tickets'])
+            ->whereIn('id', $request->payment_ids)
+            ->get();
+
+        foreach ($payments as $payment) {
+            $action->execute($payment, $request->status, null, $request->user()?->id);
+        }
+
+        return redirect()->route('admin.payments.index')
+            ->with('success', 'Pagos procesados en lote correctamente.');
     }
 }

@@ -3,33 +3,41 @@
 namespace App\Services;
 
 use App\Models\Raffle;
-use Illuminate\Support\Facades\DB;
+use App\Models\Ticket;
 
 class TicketNumberGeneratorService
 {
-    public function generateForRaffle(Raffle $raffle): void
+    public function generateForRaffle(Raffle $raffle): int
     {
-        $chunkSize = 500;
-        $total = $raffle->total_tickets;
-        $raffleId = $raffle->id;
-        $now = now()->toDateTimeString();
+        $totalTickets = max(0, (int) $raffle->total_tickets);
 
-        for ($start = 1; $start <= $total; $start += $chunkSize) {
-            $end = min($start + $chunkSize - 1, $total);
+        if ($totalTickets === 0) {
+            return 0;
+        }
 
-            $rows = [];
-            for ($number = $start; $number <= $end; $number++) {
-                $rows[] = [
-                    'raffle_id'  => $raffleId,
-                    'number'     => $number,
-                    'status'     => 'available',
-                    'version'    => 1,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
+        $existingNumbers = Ticket::where('raffle_id', $raffle->id)->pluck('number')->all();
+        $existingLookup = array_flip($existingNumbers);
+        $rows = [];
+
+        for ($number = 0; $number < $totalTickets; $number++) {
+            if (isset($existingLookup[$number])) {
+                continue;
             }
 
-            DB::table('tickets')->insertOrIgnore($rows);
+            $rows[] = [
+                'raffle_id' => $raffle->id,
+                'number' => $number,
+                'status' => 'available',
+                'version' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            Ticket::insertOrIgnore($chunk);
+        }
+
+        return count($rows);
     }
 }

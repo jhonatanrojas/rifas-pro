@@ -22,8 +22,10 @@ const form = useForm({
     remember: false,
 });
 
+const redirectTarget = new URLSearchParams(window.location.search).get('redirect');
+
 const submit = () => {
-    form.post(route('login'), {
+    form.post(route('login', redirectTarget ? { redirect: redirectTarget } : {}), {
         onFinish: () => form.reset('password'),
     });
 };
@@ -71,8 +73,8 @@ const submit = () => {
 
             <div class="mt-4 block">
                 <label class="flex items-center">
-                    <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span class="ms-2 text-sm text-gray-600"
+                <Checkbox name="remember" v-model:checked="form.remember" />
+                    <span class="ms-2 text-sm text-zinc-300"
                         >Remember me</span
                     >
                 </label>
@@ -81,8 +83,8 @@ const submit = () => {
             <div class="mt-4 flex items-center justify-end">
                 <Link
                     v-if="canResetPassword"
-                    :href="route('password.request')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    :href="route('password.request', redirectTarget ? { redirect: redirectTarget } : {})"
+                    class="rounded-md text-sm text-zinc-300 underline hover:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
                     Forgot your password?
                 </Link>

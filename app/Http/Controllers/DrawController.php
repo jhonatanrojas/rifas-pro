@@ -34,6 +34,7 @@ class DrawController extends Controller
                 : null,
             'winners' => WinnerWallResource::collection($winners)->resolve(request()),
             'auditHash' => $raffle->drawAudit?->participants_hash,
+            'drawAudit' => $raffle->drawAudit,
             'canExecute' => Gate::allows('execute', $raffle) && ! $raffle->drawAudit,
         ]);
     }
@@ -47,6 +48,9 @@ class DrawController extends Controller
                 raffleId: $raffle->id,
                 adminUserId: $request->user()->id,
                 prizeDescription: $request->prize_description,
+                executionMode: $request->input('execution_mode', $raffle->draw_type === 'external_lottery' ? 'manual_external' : 'automatic'),
+                winningNumber: $request->filled('winning_number') ? (int) $request->input('winning_number') : null,
+                externalReference: $request->input('external_reference'),
             ));
 
             if ($winners->isEmpty()) {

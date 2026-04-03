@@ -8,5 +8,8 @@ readonly class ExecuteDrawDTO
         public int $raffleId,
         public int $adminUserId,
         public string $prizeDescription,
+        public string $executionMode = 'automatic',
+        public ?int $winningNumber = null,
+        public ?string $externalReference = null,
     ) {}
 }

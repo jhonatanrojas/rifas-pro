@@ -6,6 +6,7 @@ use App\Events\RaffleMetricsUpdated;
 use App\Models\Payment;
 use App\Models\Order;
 use App\Models\Raffle;
+use App\Notifications\PaymentReviewedNotification;
 use App\Services\Notifications\WhatsAppServiceInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -51,6 +52,8 @@ class ReviewPaymentAction
                 // Don't release tickets here immediately? Or release them?
                 // Phase 2 logic: Release after 15m expiration if not paid.
             }
+
+            $order->user?->notify(new PaymentReviewedNotification($payment, $status));
 
             // Trigger Real-time metrics
             $today = now()->startOfDay();

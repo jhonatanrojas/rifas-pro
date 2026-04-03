@@ -9,9 +9,12 @@ class TicketResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $digits = $this->raffle?->number_digits ?? 4;
+
         return [
-            'id'     => $this->id,
+            'id' => $this->id,
             'number' => $this->number,
+            'display_number' => str_pad((string) $this->number, $digits, '0', STR_PAD_LEFT),
             'status' => $this->status,
         ];
     }

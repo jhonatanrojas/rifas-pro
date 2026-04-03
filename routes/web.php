@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Admin\AdminParticipantController;
+use App\Http\Controllers\Admin\AdminSettingsController;
 use App\Http\Controllers\PurchasesController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\RaffleController;
@@ -23,7 +25,7 @@ Route::get('/', function () {
 
 Route::middleware('affiliate')->group(function () {
     Route::get('/rifas', [RaffleController::class, 'index'])->name('raffles.index');
-    Route::get('/rifa/{slug}', [RaffleController::class, 'show'])->name('raffles.show');
+    Route::get('/rifa/{raffle}', [RaffleController::class, 'show'])->name('raffles.show');
 });
 
 Route::get('/dashboard', function () {
@@ -38,6 +40,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/pagos', [\App\Http\Controllers\Admin\AdminPaymentController::class, 'index'])->name('payments.index');
     Route::get('/pagos/{payment}', [\App\Http\Controllers\Admin\AdminPaymentController::class, 'show'])->name('payments.show');
     Route::post('/pagos/{payment}/review', [\App\Http\Controllers\Admin\AdminPaymentController::class, 'review'])->name('payments.review');
+    Route::post('/pagos/lote', [\App\Http\Controllers\Admin\AdminPaymentController::class, 'bulkReview'])->name('payments.bulk-review');
+
+    // Participantes
+    Route::get('/participantes', [AdminParticipantController::class, 'index'])->name('participants.index');
 
     // Sorteos
     Route::get('/sorteos/{raffle}/preparar', [\App\Http\Controllers\DrawController::class, 'show'])->name('draw.show');
@@ -45,6 +51,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     
     // Raffles Management
     Route::resource('raffles', \App\Http\Controllers\Admin\AdminRaffleController::class);
+
+    // Configuración
+    Route::get('/configuracion', [AdminSettingsController::class, 'index'])->name('settings');
+    Route::put('/configuracion', [AdminSettingsController::class, 'update'])->name('settings.update');
 });
 
 Route::middleware('auth')->group(function () {

@@ -140,8 +140,8 @@ function submitTestimony() {
                         <p class="text-xs font-black uppercase tracking-widest text-surface-400">Ganador</p>
                         <h3 class="text-2xl font-black text-white">{{ selectedWinner.user?.name }}</h3>
                         <p class="text-sm text-surface-400 mt-1">
-                            Rifa: {{ selectedWinner.raffle?.title }} | Ticket #{{ String(selectedWinner.ticket?.number ?? 0).padStart(4, '0') }}
-                        </p>
+                        Rifa: {{ selectedWinner.raffle?.title }} | Ticket #{{ selectedWinner.ticket?.display_number ?? String(selectedWinner.ticket?.number ?? 0).padStart(selectedWinner.raffle?.number_digits || 4, '0') }}
+                    </p>
                     </div>
                     <button @click="closeDetail" class="text-surface-400 hover:text-white">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -189,7 +189,7 @@ function submitTestimony() {
                             <textarea
                                 v-model="testimonyForm.testimony"
                                 rows="5"
-                                class="w-full bg-surface-dark border border-surface-300/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500"
+                class="w-full bg-surface border border-surface-300/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500"
                                 placeholder="Cuéntanos como fue tu experiencia..."
                             />
                         </div>

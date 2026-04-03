@@ -20,11 +20,16 @@ class CallMeBotWhatsAppService extends AbstractWhatsAppService
 
     public function sendTicket(User $user, Order $order, string $receiptImageUrl): bool
     {
+        $template = $this->template('payment_approved', [
+            'nombre' => $user->name,
+            'rifa' => $order->raffle->title,
+            'numeros' => $this->formatTickets($order),
+            'total' => $order->total . ' ' . $order->currency,
+        ]);
+
         $message = implode("\n", array_filter([
-            'TICKET CONFIRMED',
-            'Raffle: ' . $order->raffle->title,
-            'Numbers: ' . $this->formatTickets($order),
-            'Amount: ' . $order->total . ' ' . $order->currency,
+            $template['title'] ?? 'TICKET CONFIRMED',
+            $template['body'] ?? null,
             'Draw: ' . optional($order->raffle->draw_date)->format('d/m/Y'),
             'Verify: ' . $this->verificationUrl($order),
             $receiptImageUrl ? 'Receipt: ' . $receiptImageUrl : null,
@@ -77,11 +82,16 @@ class CallMeBotWhatsAppService extends AbstractWhatsAppService
 
     public function sendWinnerNotification(User $user, Raffle $raffle): bool
     {
+        $prize = $raffle->winners()->latest()->value('prize_description') ?? 'Premio principal';
+        $template = $this->template('winner', [
+            'nombre' => $user->name,
+            'rifa' => $raffle->title,
+            'premio' => $prize,
+        ]);
+
         $message = implode("\n", array_filter([
-            'WINNER ALERT',
-            "Hello {$user->name},",
-            "Your ticket won in {$raffle->title}.",
-            'Prize: ' . ($raffle->prize_description ?? 'Main Prize'),
+            $template['title'] ?? 'WINNER ALERT',
+            $template['body'] ?? "Your ticket won in {$raffle->title}.",
             'Details: ' . route('raffles.show', $raffle->slug),
         ]));
 

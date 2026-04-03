@@ -7,9 +7,19 @@ use App\Models\Order;
 use App\Models\Raffle;
 use App\Models\Ticket;
 use App\Exceptions\Domain\InsufficientTicketsException;
+use App\Services\SystemSettingsService;
 
 class TicketReservationService
 {
+    public function __construct(protected ?SystemSettingsService $settings = null)
+    {
+    }
+
+    protected function settings(): SystemSettingsService
+    {
+        return $this->settings ?? app(SystemSettingsService::class);
+    }
+
     public function reserve(ReserveTicketsDTO $dto): Order
     {
         $raffle = Raffle::with('combos')->findOrFail($dto->raffleId);
@@ -77,7 +87,7 @@ class TicketReservationService
             'user_id' => $dto->userId,
             'order_id' => $order->id,
             'reserved_at' => now(),
-            'reserved_until' => now()->addHours(12) // User has 12 hours window before cancelation
+            'reserved_until' => now()->addMinutes((int) $this->settings()->get('reservation_minutes', 15))
         ]);
 
         return $order;

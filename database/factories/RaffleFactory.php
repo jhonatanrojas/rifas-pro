@@ -20,6 +20,7 @@ class RaffleFactory extends Factory
             'title'         => $title,
             'slug'          => Str::slug($title) . '-' . fake()->unique()->numberBetween(1, 99999),
             'description'   => fake()->paragraph(),
+            'category'     => fake()->randomElement(['Electrónicos', 'Vehículos', 'Hogar', 'Dinero']),
             'cover_image'   => null,
             'total_tickets' => fake()->randomElement([100, 500, 1000, 5000]),
             'ticket_price'  => fake()->randomFloat(2, 1, 50),
@@ -31,7 +32,7 @@ class RaffleFactory extends Factory
             'sold_count'    => 0,
             'goal_amount'   => null,
             'is_featured'   => false,
-            'settings'      => null,
+            'settings'      => [],
         ];
     }
 

@@ -19,6 +19,7 @@ class WinnerWallResource extends JsonResource
             'ticket' => [
                 'id' => $this->ticket?->id,
                 'number' => $this->ticket?->number,
+                'display_number' => $this->ticket?->display_number ?? str_pad((string) ($this->ticket?->number ?? 0), $this->raffle?->number_digits ?? 4, '0', STR_PAD_LEFT),
             ],
             'raffle' => [
                 'id' => $this->raffle?->id,

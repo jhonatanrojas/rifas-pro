@@ -6,6 +6,7 @@ use App\Models\NotificationLog;
 use App\Models\Order;
 use App\Models\Raffle;
 use App\Models\User;
+use App\Services\NotificationTemplateService;
 use App\Services\Notifications\WhatsAppServiceInterface;
 use Illuminate\Support\Facades\URL;
 
@@ -34,8 +35,13 @@ abstract class AbstractWhatsAppService implements WhatsAppServiceInterface
     {
         return $order->tickets
             ->pluck('number')
-            ->map(fn ($number) => str_pad((string) $number, 4, '0', STR_PAD_LEFT))
+            ->map(fn ($number) => str_pad((string) $number, $order->raffle?->number_digits ?? 4, '0', STR_PAD_LEFT))
             ->implode(', ');
+    }
+
+    protected function template(string $key, array $context = []): array
+    {
+        return app(NotificationTemplateService::class)->render('whatsapp', $key, $context);
     }
 
     abstract public function sendTicket(User $user, Order $order, string $receiptImageUrl): bool;

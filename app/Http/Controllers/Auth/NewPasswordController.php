@@ -21,9 +21,16 @@ class NewPasswordController extends Controller
      */
     public function create(Request $request): Response
     {
+        $redirect = $request->query('redirect', session('auth.redirect', route('purchases.index', absolute: false)));
+        if (!is_string($redirect) || !str_starts_with($redirect, '/')) {
+            $redirect = route('purchases.index', absolute: false);
+        }
+        $request->session()->put('auth.redirect', $redirect);
+
         return Inertia::render('Auth/ResetPassword', [
             'email' => $request->email,
             'token' => $request->route('token'),
+            'redirect' => $redirect,
         ]);
     }
 
@@ -38,6 +45,7 @@ class NewPasswordController extends Controller
             'token' => 'required',
             'email' => 'required|email',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'redirect' => 'nullable|string',
         ]);
 
         // Here we will attempt to reset the user's password. If it is successful we
@@ -59,7 +67,12 @@ class NewPasswordController extends Controller
         // the application's home authenticated view. If there is an error we can
         // redirect them back to where they came from with their error message.
         if ($status == Password::PASSWORD_RESET) {
-            return redirect()->route('login')->with('status', __($status));
+            $redirect = $request->input('redirect', session('auth.redirect', route('purchases.index', absolute: false)));
+            if (!is_string($redirect) || !str_starts_with($redirect, '/')) {
+                $redirect = route('purchases.index', absolute: false);
+            }
+
+            return redirect(route('login', ['redirect' => $redirect], false))->with('status', __($status));
         }
 
         throw ValidationException::withMessages([

@@ -14,6 +14,7 @@ class WinnerResource extends JsonResource
             'user_name' => $this->user->name,
             'raffle_title' => $this->raffle->title,
             'ticket_number' => $this->ticket->number,
+            'ticket_display_number' => $this->ticket->display_number ?? str_pad((string) $this->ticket->number, $this->raffle?->number_digits ?? 4, '0', STR_PAD_LEFT),
             'prize' => $this->prize_description,
             'won_at' => $this->created_at,
         ];

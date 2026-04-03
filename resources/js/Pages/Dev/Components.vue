@@ -205,16 +205,16 @@ async function handleRefresh() {
 
                     <BasePullToRefresh :refreshing="refreshing" @refresh="handleRefresh">
                         <div class="space-y-4">
-                            <div class="rounded-2xl border border-white/5 bg-surface-dark/40 p-4">
+                <div class="rounded-2xl border border-white/5 bg-surface/40 p-4">
                                 <p class="text-sm text-surface-400">Toca y arrastra hacia abajo desde la parte superior en mobile para disparar el refresco.</p>
                             </div>
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="rounded-2xl bg-surface-dark/50 border border-white/5 p-4">
+                <div class="rounded-2xl bg-surface/50 border border-white/5 p-4">
                                     <p class="text-xs uppercase tracking-widest text-surface-500 font-bold">Estado</p>
                                     <p class="text-white font-bold mt-1">{{ refreshing ? 'Refrescando...' : 'Listo' }}</p>
                                 </div>
-                                <div class="rounded-2xl bg-surface-dark/50 border border-white/5 p-4">
+                <div class="rounded-2xl bg-surface/50 border border-white/5 p-4">
                                     <p class="text-xs uppercase tracking-widest text-surface-500 font-bold">Ultima actualizacion</p>
                                     <p class="text-white font-bold mt-1">{{ timeLabel }}</p>
                                 </div>
@@ -234,19 +234,19 @@ async function handleRefresh() {
                     </template>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="rounded-2xl border border-white/5 bg-surface-dark/40 p-4">
+                <div class="rounded-2xl border border-white/5 bg-surface/40 p-4">
                             <p class="font-bold text-white">AppLayout</p>
                             <p class="text-sm text-surface-400 mt-1">Bottom nav en mobile + sidebar desktop + banners PWA.</p>
                         </div>
-                        <div class="rounded-2xl border border-white/5 bg-surface-dark/40 p-4">
+                <div class="rounded-2xl border border-white/5 bg-surface/40 p-4">
                             <p class="font-bold text-white">GuestLayout</p>
                             <p class="text-sm text-surface-400 mt-1">Header sticky, login/register y banner de instalacion.</p>
                         </div>
-                        <div class="rounded-2xl border border-white/5 bg-surface-dark/40 p-4">
+                <div class="rounded-2xl border border-white/5 bg-surface/40 p-4">
                             <p class="font-bold text-white">AdminLayout</p>
                             <p class="text-sm text-surface-400 mt-1">Sidebar colapsable y estructura para dashboard y sorteos.</p>
                         </div>
-                        <div class="rounded-2xl border border-white/5 bg-surface-dark/40 p-4">
+                <div class="rounded-2xl border border-white/5 bg-surface/40 p-4">
                             <p class="font-bold text-white">Inertia + Motion</p>
                             <p class="text-sm text-surface-400 mt-1">Progress bar, transiciones y motion plugin ya integrados.</p>
                         </div>

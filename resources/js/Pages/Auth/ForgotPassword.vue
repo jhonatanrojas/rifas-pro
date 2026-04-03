@@ -16,8 +16,10 @@ const form = useForm({
     email: '',
 });
 
+const redirectTarget = new URLSearchParams(window.location.search).get('redirect');
+
 const submit = () => {
-    form.post(route('password.email'));
+    form.post(route('password.email', redirectTarget ? { redirect: redirectTarget } : {}));
 };
 </script>
 
@@ -25,10 +27,8 @@ const submit = () => {
     <GuestLayout>
         <Head title="Forgot Password" />
 
-        <div class="mb-4 text-sm text-gray-600">
-            Forgot your password? No problem. Just let us know your email
-            address and we will email you a password reset link that will allow
-            you to choose a new one.
+        <div class="mb-4 text-sm text-zinc-300">
+            Forgot your password? No problem. Just let us know your email address and we will email you a password reset link.
         </div>
 
         <div

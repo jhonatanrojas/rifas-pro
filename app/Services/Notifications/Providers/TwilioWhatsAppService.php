@@ -95,6 +95,12 @@ class TwilioWhatsAppService extends AbstractWhatsAppService
     public function sendWinnerNotification(User $user, Raffle $raffle): bool
     {
         $to = $user->phone ?: config('services.whatsapp.twilio.default_to');
+        $prize = $raffle->winners()->latest()->value('prize_description') ?? 'Premio principal';
+        $template = $this->template('winner', [
+            'nombre' => $user->name,
+            'rifa' => $raffle->title,
+            'premio' => $prize,
+        ]);
 
         if (! $this->sid || ! $this->token || ! $this->from || ! $to) {
             $this->record($user, 'winner', [
@@ -110,7 +116,11 @@ class TwilioWhatsAppService extends AbstractWhatsAppService
             ->post("https://api.twilio.com/2010-04-01/Accounts/{$this->sid}/Messages.json", [
                 'From' => $this->from,
                 'To' => $to,
-                'Body' => "Winner alert: {$user->name} won {$raffle->title}.",
+                'Body' => implode("\n", array_filter([
+                    $template['title'] ?? 'WINNER ALERT',
+                    $template['body'] ?? "Winner alert: {$user->name} won {$raffle->title}.",
+                    'Prize: ' . $prize,
+                ])),
             ]);
 
         $this->record($user, 'winner', [
@@ -123,11 +133,16 @@ class TwilioWhatsAppService extends AbstractWhatsAppService
 
     protected function buildTicketMessage(Order $order, string $receiptImageUrl): string
     {
+        $template = $this->template('payment_approved', [
+            'nombre' => $order->user->name,
+            'rifa' => $order->raffle->title,
+            'numeros' => $this->formatTickets($order),
+            'total' => $order->total . ' ' . $order->currency,
+        ]);
+
         return implode("\n", array_filter([
-            'TICKET CONFIRMED',
-            'Raffle: ' . $order->raffle->title,
-            'Numbers: ' . $this->formatTickets($order),
-            'Amount: ' . $order->total . ' ' . $order->currency,
+            $template['title'] ?? 'TICKET CONFIRMED',
+            $template['body'] ?? null,
             'Draw: ' . optional($order->raffle->draw_date)->format('d/m/Y'),
             'Verify: ' . $this->verificationUrl($order),
             $receiptImageUrl ? 'Receipt: ' . $receiptImageUrl : null,

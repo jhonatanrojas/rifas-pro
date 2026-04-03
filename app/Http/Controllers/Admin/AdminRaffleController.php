@@ -3,114 +3,85 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Raffle;
 use App\Http\Resources\RaffleResource;
+use App\Models\Raffle;
+use App\Services\TicketNumberGeneratorService;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
 
 class AdminRaffleController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        $raffles = Raffle::withCount(['tickets', 'tickets as sold_count' => function ($query) {
-            $query->where('status', 'sold');
-        }])->latest()->paginate(10);
-        
+        $raffles = Raffle::with(['combos', 'prizes'])
+            ->withCount(['tickets', 'tickets as sold_count' => function ($query) {
+                $query->where('status', 'sold');
+            }])
+            ->latest()
+            ->paginate(10);
+
         return Inertia::render('Admin/Raffle/Index', [
-            'raffles' => RaffleResource::collection($raffles)
+            'raffles' => RaffleResource::collection($raffles),
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
         return Inertia::render('Admin/Raffle/CreateOrEdit');
     }
 
-    public function store(Request $request)
+    public function store(Request $request, TicketNumberGeneratorService $ticketGenerator)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'ticket_price' => 'required|numeric|min:0',
-            'total_tickets' => 'required|integer|min:1',
-            'currency' => 'required|string|size:3',
-            'draw_date' => 'nullable|date',
-            'cover_image' => 'nullable|image|max:2048',
-            'combos' => 'nullable|array',
-            'combos.*.quantity' => 'required|integer|min:2',
-            'combos.*.price' => 'required|numeric|min:0',
-        ]);
-
+        $validated = $this->validateRaffle($request);
         $validated['slug'] = Str::slug($validated['title']) . '-' . Str::random(5);
-        $validated['status'] = 'draft';
         $validated['owner_id'] = $request->user()->id;
+
+        $combos = $validated['combos'] ?? [];
+        $prizes = $validated['prizes'] ?? [];
+        unset($validated['combos'], $validated['prizes']);
 
         if ($request->hasFile('cover_image')) {
             $validated['cover_image'] = $request->file('cover_image')->store('raffles', 'public');
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request) {
+        DB::transaction(function () use ($validated, $request, $combos, $prizes, $ticketGenerator) {
             $raffle = Raffle::create($validated);
-            
-            if ($request->combos) {
-                foreach ($request->combos as $combo) {
-                    $raffle->combos()->create($combo);
-                }
-            }
-
-            // Optional: Dispatch ticket generation job here
+            $this->syncCombos($raffle, $combos);
+            $this->syncPrizes($raffle, $request, $prizes);
+            $ticketGenerator->generateForRaffle($raffle);
         });
 
         return redirect()->route('admin.raffles.index')->with('success', 'Rifa creada exitosamente');
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Raffle $raffle)
+    public function update(Request $request, Raffle $raffle, TicketNumberGeneratorService $ticketGenerator)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'ticket_price' => 'required|numeric|min:0',
-            'total_tickets' => 'required|integer|min:1',
-            'currency' => 'required|string|size:3',
-            'draw_date' => 'nullable|date',
-            'cover_image' => 'nullable|image|max:2048',
-            'combos' => 'nullable|array',
-        ]);
+        $validated = $this->validateRaffle($request);
+        $combos = $validated['combos'] ?? [];
+        $prizes = $validated['prizes'] ?? [];
+        unset($validated['combos'], $validated['prizes']);
 
         if ($request->hasFile('cover_image')) {
             if ($raffle->cover_image) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($raffle->cover_image);
+                Storage::disk('public')->delete($raffle->cover_image);
             }
+
             $validated['cover_image'] = $request->file('cover_image')->store('raffles', 'public');
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($raffle, $validated, $request) {
+        DB::transaction(function () use ($raffle, $validated, $request, $combos, $prizes, $ticketGenerator) {
             $raffle->update($validated);
-            
-            if ($request->has('combos')) {
-                $raffle->combos()->delete();
-                foreach ($request->combos as $combo) {
-                    $raffle->combos()->create($combo);
-                }
-            }
+            $this->syncCombos($raffle, $combos);
+            $this->syncPrizes($raffle, $request, $prizes);
+            $ticketGenerator->generateForRaffle($raffle);
         });
 
         return redirect()->route('admin.raffles.index')->with('success', 'Rifa actualizada con éxito');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Raffle $raffle)
     {
         if ($raffle->tickets()->where('status', 'sold')->exists()) {
@@ -118,33 +89,109 @@ class AdminRaffleController extends Controller
         }
 
         $raffle->delete();
+
         return redirect()->route('admin.raffles.index')->with('success', 'Rifa eliminada correctamente.');
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Raffle $raffle)
     {
         return Inertia::render('Admin/Raffle/CreateOrEdit', [
-            'raffle' => new RaffleResource($raffle->load('combos'))
+            'raffle' => new RaffleResource($raffle->load(['combos', 'prizes'])),
         ]);
     }
 
     public function show(Raffle $raffle)
     {
-        $raffle->load(['combos', 'tickets' => fn($q) => $q->where('status', 'sold')->limit(20)]);
-        $raffle->loadCount(['tickets as sold_count' => fn($q) => $q->where('status', 'sold')]);
-        
+        $raffle->load([
+            'combos',
+            'prizes',
+            'tickets' => fn ($q) => $q->where('status', 'sold')->limit(20),
+        ]);
+        $raffle->loadCount(['tickets as sold_count' => fn ($q) => $q->where('status', 'sold')]);
+
         $stats = [
             'total_sales' => $raffle->orders()->where('status', 'paid')->sum('total'),
-            'progress' => $raffle->total_tickets > 0 ? ($raffle->sold_count / $raffle->total_tickets) * 100 : 0,
+            'progress' => (int) $raffle->total_tickets > 0 ? ($raffle->sold_count / (int) $raffle->total_tickets) * 100 : 0,
             'recent_payments' => $raffle->payments()->with('user')->latest()->limit(10)->get(),
         ];
 
         return Inertia::render('Admin/Raffle/Show', [
             'raffle' => new RaffleResource($raffle),
-            'stats'  => $stats
+            'stats' => $stats,
         ]);
+    }
+
+    protected function validateRaffle(Request $request): array
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'category' => 'nullable|string|max:120',
+            'ticket_price' => 'required|numeric|min:0',
+            'total_tickets' => 'required|integer|min:1',
+            'currency' => 'required|string|size:3',
+            'draw_date' => 'nullable|date',
+            'draw_type' => 'nullable|in:internal_random,external_lottery',
+            'status' => 'nullable|in:draft,active,paused,drawn,cancelled',
+            'is_featured' => 'nullable|boolean',
+            'cover_image' => 'nullable|image|max:4096',
+            'combos' => 'nullable|array',
+            'combos.*.quantity' => 'required|integer|min:2',
+            'combos.*.price' => 'required|numeric|min:0',
+            'combos.*.label' => 'nullable|string|max:255',
+            'prizes' => 'nullable|array',
+            'prizes.*.title' => 'required|string|max:255',
+            'prizes.*.description' => 'nullable|string|max:2000',
+            'prizes.*.is_featured' => 'nullable|boolean',
+            'prizes.*.image' => 'nullable|image|max:4096',
+        ]);
+
+        $validated['draw_type'] = $validated['draw_type'] ?? 'internal_random';
+        $validated['status'] = $validated['status'] ?? 'draft';
+        $validated['is_featured'] = (bool) ($validated['is_featured'] ?? false);
+
+        return $validated;
+    }
+
+    protected function syncCombos(Raffle $raffle, array $combos): void
+    {
+        $raffle->combos()->delete();
+
+        foreach ($combos as $combo) {
+            if (! isset($combo['quantity'], $combo['price'])) {
+                continue;
+            }
+
+            $raffle->combos()->create([
+                'quantity' => $combo['quantity'],
+                'price' => $combo['price'],
+                'label' => $combo['label'] ?? null,
+                'is_active' => true,
+            ]);
+        }
+    }
+
+    protected function syncPrizes(Raffle $raffle, Request $request, array $prizes): void
+    {
+        $raffle->prizes()->delete();
+
+        foreach ($prizes as $index => $prize) {
+            if (empty($prize['title'])) {
+                continue;
+            }
+
+            $imagePath = null;
+            if ($request->hasFile("prizes.$index.image")) {
+                $imagePath = $request->file("prizes.$index.image")->store('raffle-prizes', 'public');
+            }
+
+            $raffle->prizes()->create([
+                'title' => $prize['title'],
+                'description' => $prize['description'] ?? null,
+                'image_path' => $imagePath,
+                'sort_order' => $index,
+                'is_featured' => (bool) ($prize['is_featured'] ?? false),
+            ]);
+        }
     }
 }

@@ -23,6 +23,10 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    drawAudit: {
+        type: Object,
+        default: null,
+    },
     canExecute: {
         type: Boolean,
         default: false,
@@ -36,6 +40,9 @@ const form = useForm({
     raffle_id: raffleData.value?.id,
     prize_description: '',
     confirm_draw: false,
+    execution_mode: raffleData.value?.draw_type === 'external_lottery' ? 'manual_external' : 'automatic',
+    winning_number: '',
+    external_reference: '',
 })
 
 function submitDraw() {
@@ -114,6 +121,39 @@ function submitDraw() {
                     <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-400 mb-6 border-b border-brand-500/10 pb-4">Control del sorteo</h3>
 
                     <div class="space-y-4">
+                        <div class="p-5 bg-white/5 rounded-[1.5rem] border border-white/5">
+                            <p class="text-[10px] font-black uppercase text-zinc-500 mb-2">Modo de ejecución</p>
+                            <select
+                                v-model="form.execution_mode"
+                                class="w-full bg-surface-light border border-surface-300/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500"
+                            >
+                                <option value="automatic">Automático</option>
+                                <option value="manual_external">Manual / Externo</option>
+                            </select>
+                        </div>
+
+                        <div v-if="form.execution_mode === 'manual_external'" class="p-5 bg-white/5 rounded-[1.5rem] border border-white/5 space-y-4">
+                            <div>
+                                <p class="text-[10px] font-black uppercase text-zinc-500 mb-2">Número ganador</p>
+                                <input
+                                    v-model="form.winning_number"
+                                    type="number"
+                                    min="0"
+                                    class="w-full bg-surface-light border border-surface-300/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500"
+                                    placeholder="Ej: 1234"
+                                />
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black uppercase text-zinc-500 mb-2">Referencia externa</p>
+                                <input
+                                    v-model="form.external_reference"
+                                    type="text"
+                                    class="w-full bg-surface-light border border-surface-300/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500"
+                                    placeholder="Ej: Sorteo de lotería oficial del día"
+                                />
+                            </div>
+                        </div>
+
                         <div class="p-5 bg-brand-500/5 rounded-[1.5rem] border border-brand-500/10">
                             <p class="text-[10px] font-black uppercase text-brand-400 mb-2">Premio</p>
                             <textarea
@@ -147,9 +187,14 @@ function submitDraw() {
                     <p class="text-sm text-zinc-400 leading-relaxed mb-4">
                         El hash de participantes confirma que el sorteo puede verificarse posteriormente.
                     </p>
-                    <code class="block break-all text-[11px] text-green-400 bg-surface-dark rounded-xl p-4 border border-white/5">
+                    <code class="block break-all text-[11px] text-green-400 bg-surface rounded-xl p-4 border border-white/5">
                         {{ auditHash || 'Aun no existe auditoria para esta rifa.' }}
                     </code>
+                    <div v-if="drawAudit" class="mt-4 text-xs text-zinc-400 space-y-1">
+                        <p>Modo: <span class="text-white font-semibold">{{ drawAudit.execution_mode === 'manual_external' ? 'Manual / Externo' : 'Automático' }}</span></p>
+                        <p v-if="drawAudit.winning_number !== null">Número externo: <span class="text-white font-semibold">{{ drawAudit.winning_number }}</span></p>
+                        <p v-if="drawAudit.external_reference">Referencia: <span class="text-white font-semibold">{{ drawAudit.external_reference }}</span></p>
+                    </div>
                 </div>
             </div>
         </div>

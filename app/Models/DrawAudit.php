@@ -16,6 +16,9 @@ class DrawAudit extends Model
         'participants_snapshot',
         'algorithm_version',
         'seed',
+        'execution_mode',
+        'external_reference',
+        'winning_number',
         'drawn_at',
         'created_by',
     ];
@@ -25,6 +28,7 @@ class DrawAudit extends Model
         return [
             'participants_snapshot' => 'array',
             'drawn_at'              => 'datetime',
+            'winning_number'        => 'integer',
         ];
     }
 

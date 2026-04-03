@@ -8,9 +8,74 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const isDragging = ref(false)
+const isOptimizing = ref(false)
 const preview = ref(null)
 const ocrState = ref('idle') // idle | scanning | detected
 const ocrFields = ref({ amount: '', reference: '', bank: '', confidence: '' })
+
+const MAX_DIRECT_UPLOAD_BYTES = 1.8 * 1024 * 1024
+const MAX_IMAGE_DIMENSION = 1600
+
+function startOcrSim() {
+    ocrState.value = 'scanning'
+    setTimeout(() => {
+        ocrState.value = 'detected'
+    }, 2000)
+}
+
+function canvasToBlob(canvas, type, quality) {
+    return new Promise((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), type, quality)
+    })
+}
+
+function nextFilename(file, fallback = 'comprobante.jpg') {
+    const baseName = file?.name ? file.name.replace(/\.[^.]+$/, '') : fallback.replace(/\.[^.]+$/, '')
+    return `${baseName}.jpg`
+}
+
+async function optimizeImage(file) {
+    if (!file || file.size <= MAX_DIRECT_UPLOAD_BYTES) {
+        return file
+    }
+
+    if (typeof createImageBitmap !== 'function') {
+        return file
+    }
+
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height))
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+
+    if (!ctx) return file
+
+    canvas.width = width
+    canvas.height = height
+    ctx.drawImage(bitmap, 0, 0, width, height)
+
+    for (const quality of [0.82, 0.72, 0.62]) {
+        const blob = await canvasToBlob(canvas, 'image/jpeg', quality)
+        if (blob && blob.size <= MAX_DIRECT_UPLOAD_BYTES) {
+            return new File([blob], nextFilename(file), {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+            })
+        }
+    }
+
+    const fallbackBlob = await canvasToBlob(canvas, 'image/jpeg', 0.55)
+    if (fallbackBlob) {
+        return new File([fallbackBlob], nextFilename(file), {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+        })
+    }
+
+    return file
+}
 
 watch(() => props.modelValue, (file) => {
     if (!file) {
@@ -26,24 +91,20 @@ watch(() => props.modelValue, (file) => {
     startOcrSim()
 })
 
-function startOcrSim() {
-    ocrState.value = 'scanning'
-    setTimeout(() => {
-        ocrState.value = 'detected'
-    }, 2000)
-}
-
-function handleFile(file) {
+async function handleFile(file) {
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-        alert('El archivo es demasiado grande. Máximo 5MB.')
-        return
-    }
     if (!file.type.startsWith('image/')) {
-        alert('Solo se permiten imágenes para el comprobante.')
+        alert('Solo se permiten imagenes para el comprobante.')
         return
     }
-    emit('update:modelValue', file)
+
+    isOptimizing.value = true
+    try {
+        const optimized = await optimizeImage(file)
+        emit('update:modelValue', optimized)
+    } finally {
+        isOptimizing.value = false
+    }
 }
 
 function onFileInput(e) {
@@ -79,7 +140,6 @@ onBeforeUnmount(() => {
 
 <template>
     <div class="space-y-4">
-        <!-- Upload Zone -->
         <div
             v-if="!modelValue"
             @drop.prevent="onDrop"
@@ -101,20 +161,20 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div>
-                    <p class="text-sm font-bold text-white">Arrastra tu comprobante aquí</p>
-                    <p class="text-xs text-surface-400 mt-0.5">PNG o JPG — máx. 5MB</p>
+                    <p class="text-sm font-bold text-white">Arrastra tu comprobante aqui</p>
+                    <p class="text-xs text-surface-400 mt-0.5">PNG, JPG o WEBP. Se optimiza automaticamente si supera 2 MB.</p>
                 </div>
 
-                <!-- Desktop: single button -->
                 <label class="hidden sm:block btn-secondary text-sm cursor-pointer">
-                    Seleccionar archivo
+                    <span v-if="isOptimizing">Optimizando...</span>
+                    <span v-else>Seleccionar archivo</span>
                     <input type="file" accept="image/*" class="hidden" @change="onFileInput" />
                 </label>
 
-                <!-- Mobile: two buttons -->
                 <div class="flex gap-2 sm:hidden">
                     <label class="flex items-center gap-1.5 btn-secondary text-xs cursor-pointer px-3 py-2">
-                        <span>📷</span> Tomar foto
+                        <span v-if="isOptimizing">...</span>
+                        <span v-else>📷</span> Tomar foto
                         <input type="file" accept="image/*" capture="camera" class="hidden" @change="onFileInput" />
                     </label>
                     <label class="flex items-center gap-1.5 btn-secondary text-xs cursor-pointer px-3 py-2">
@@ -125,16 +185,15 @@ onBeforeUnmount(() => {
             </div>
         </div>
 
-        <!-- Preview -->
         <div v-else class="relative rounded-2xl overflow-hidden border border-surface-300/20 bg-surface-light">
             <img
                 :src="preview"
                 alt="Comprobante de pago"
-                class="w-full h-[200px] object-contain bg-surface-dark/50 p-2"
+                class="w-full h-[200px] object-contain bg-surface/50 p-2"
             />
             <button
                 @click="removeFile"
-                class="absolute top-2 right-2 w-8 h-8 bg-surface-dark/80 rounded-full flex items-center justify-center text-surface-300 hover:text-white hover:bg-red-600/80 transition-all"
+                class="absolute top-2 right-2 w-8 h-8 bg-surface/80 rounded-full flex items-center justify-center text-surface-300 hover:text-white hover:bg-red-600/80 transition-all"
                 title="Eliminar archivo"
             >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -146,14 +205,12 @@ onBeforeUnmount(() => {
             </div>
         </div>
 
-        <!-- OCR Panel -->
         <Transition
             enter-active-class="transition-all duration-300"
             enter-from-class="opacity-0 -translate-y-2"
             enter-to-class="opacity-100 translate-y-0"
         >
             <div v-if="modelValue && ocrState !== 'idle'" class="rounded-2xl border border-surface-300/20 bg-surface-light overflow-hidden">
-                <!-- Header -->
                 <div class="px-4 py-3 border-b border-surface-300/10 flex items-center gap-2">
                     <div :class="['w-2 h-2 rounded-full', ocrState === 'scanning' ? 'bg-yellow-400 animate-pulse' : 'bg-green-400']"></div>
                     <span class="text-xs font-bold text-surface-300">
@@ -161,19 +218,17 @@ onBeforeUnmount(() => {
                     </span>
                 </div>
 
-                <!-- Scanning state -->
                 <div v-if="ocrState === 'scanning'" class="p-4 space-y-2.5">
                     <div v-for="i in 4" :key="i" class="h-8 bg-surface-lighter rounded-lg animate-pulse"></div>
                 </div>
 
-                <!-- Detected state -->
                 <div v-else class="p-4 grid grid-cols-2 gap-3">
                     <div>
                         <label class="text-xs text-surface-400 mb-1 block">Monto</label>
                         <input
                             v-model="ocrFields.amount"
                             type="text"
-                            placeholder="—"
+                            placeholder="-"
                             class="w-full bg-surface-lighter border border-surface-300/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500"
                         />
                     </div>
@@ -182,7 +237,7 @@ onBeforeUnmount(() => {
                         <input
                             v-model="ocrFields.reference"
                             type="text"
-                            placeholder="—"
+                            placeholder="-"
                             class="w-full bg-surface-lighter border border-surface-300/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500"
                         />
                     </div>
@@ -191,7 +246,7 @@ onBeforeUnmount(() => {
                         <input
                             v-model="ocrFields.bank"
                             type="text"
-                            placeholder="—"
+                            placeholder="-"
                             class="w-full bg-surface-lighter border border-surface-300/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500"
                         />
                     </div>
@@ -200,7 +255,7 @@ onBeforeUnmount(() => {
                         <input
                             v-model="ocrFields.confidence"
                             type="text"
-                            placeholder="—"
+                            placeholder="-"
                             class="w-full bg-surface-lighter border border-surface-300/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500"
                         />
                     </div>

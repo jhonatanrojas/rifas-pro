@@ -8,8 +8,10 @@ use App\Models\Payment;
 use App\Models\Raffle;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Notifications\PaymentReviewedNotification;
 use App\Services\Notifications\WhatsAppServiceInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Tests\TestCase;
@@ -67,6 +69,7 @@ class PaymentManagementTest extends TestCase
     public function test_admin_can_review_payment_and_mark_tickets_sold(): void
     {
         Storage::fake('public');
+        Notification::fake();
         $fixture = $this->seedPaymentFixture();
         Storage::disk('public')->put('receipts/test-proof.png', 'fake-image');
 
@@ -98,6 +101,7 @@ class PaymentManagementTest extends TestCase
             'id' => $fixture['tickets'][0]->id,
             'status' => 'sold',
         ]);
+        Notification::assertSentTo($fixture['buyer'], PaymentReviewedNotification::class);
     }
 
     public function test_admin_can_export_payments_csv(): void
@@ -114,5 +118,34 @@ class PaymentManagementTest extends TestCase
 
         $csv = $response->streamedContent();
         $this->assertStringContainsString('REF-123', $csv);
+    }
+
+    public function test_admin_can_bulk_review_payments(): void
+    {
+        Storage::fake('public');
+        Notification::fake();
+
+        $first = $this->seedPaymentFixture();
+        $second = $this->seedPaymentFixture();
+
+        $whatsapp = Mockery::mock(WhatsAppServiceInterface::class);
+        $whatsapp->shouldReceive('sendTicket')->twice()->andReturn(true);
+        $this->app->instance(WhatsAppServiceInterface::class, $whatsapp);
+
+        $response = $this->actingAs($first['admin'])->post(route('admin.payments.bulk-review'), [
+            'payment_ids' => [$first['payment']->id, $second['payment']->id],
+            'status' => 'approved',
+        ]);
+
+        $response->assertRedirect(route('admin.payments.index'));
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $first['payment']->id,
+            'status' => 'approved',
+        ]);
+        $this->assertDatabaseHas('payments', [
+            'id' => $second['payment']->id,
+            'status' => 'approved',
+        ]);
     }
 }

@@ -15,7 +15,7 @@ class RaffleController extends Controller
      */
     public function index()
     {
-        $raffles = Raffle::active()->with('combos')->paginate(12);
+        $raffles = Raffle::active()->with(['combos', 'prizes'])->paginate(12);
         
         return Inertia::render('Raffle/Index', [
             'raffles' => RaffleResource::collection($raffles)
@@ -27,8 +27,8 @@ class RaffleController extends Controller
      */
     public function show(Raffle $raffle)
     {
-        $raffle->load('combos');
-        $tickets = $raffle->tickets()->orderBy('number', 'asc')->get();
+        $raffle->load(['combos', 'prizes']);
+        $tickets = $raffle->tickets()->with('raffle')->orderBy('number', 'asc')->get();
         
         return Inertia::render('Raffle/Show', [
             'raffle' => (new RaffleResource($raffle))->resolve(request()),

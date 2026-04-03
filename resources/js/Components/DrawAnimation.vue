@@ -128,7 +128,7 @@ function copyHash() {
                     <div class="relative z-10 w-32 h-32 rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 flex flex-col items-center justify-center shadow-2xl shadow-yellow-500/30">
                         <span class="text-xs font-bold text-yellow-900 uppercase tracking-widest">Número</span>
                         <span class="text-3xl font-black text-yellow-900 leading-tight">
-                            {{ String(winner.ticket?.number ?? 0).padStart(4, '0') }}
+                            {{ winner.ticket?.display_number ?? String(winner.ticket?.number ?? 0).padStart(raffle.number_digits || 4, '0') }}
                         </span>
                     </div>
                 </div>

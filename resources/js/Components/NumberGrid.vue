@@ -10,6 +10,7 @@ const props = defineProps({
     currency: { type: String, default: 'USD' },
     maxSelection: { type: Number, default: 100 },
     showSummary: { type: Boolean, default: true },
+    numberDigits: { type: Number, default: 4 },
 })
 
 const emit = defineEmits(['update:modelValue', 'continue'])
@@ -57,7 +58,7 @@ function matchesSearch(ticket) {
     if (!q) return true
 
     const num = String(ticket.number)
-    const padded = String(ticket.number).padStart(4, '0')
+    const padded = ticket.display_number || String(ticket.number).padStart(props.numberDigits, '0')
 
     if (num === q || padded === q) return true
     if (num.endsWith(q)) return true
@@ -252,7 +253,7 @@ function getTicketClass(ticket) {
                     :class="[
                         'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
                         activeFilter === f.key
-                            ? 'bg-surface-dark text-brand-400 shadow'
+                            ? 'bg-surface text-brand-400 shadow'
                             : 'text-surface-400 hover:text-white'
                     ]"
                 >
@@ -346,9 +347,9 @@ function getTicketClass(ticket) {
                         'aspect-square rounded-lg text-xs font-bold transition-all border flex items-center justify-center min-h-[44px] select-none',
                         getTicketClass(ticket)
                     ]"
-                    :title="`Número ${ticket.number} — ${ticket.status}`"
+                    :title="`Número ${ticket.display_number || String(ticket.number).padStart(props.numberDigits, '0')} — ${ticket.status}`"
                 >
-                    {{ String(ticket.number).padStart(4, '0') }}
+                    {{ ticket.display_number || String(ticket.number).padStart(props.numberDigits, '0') }}
                 </button>
             </div>
 
@@ -374,7 +375,7 @@ function getTicketClass(ticket) {
         >
             <div
                 v-if="showSummary && modelValue.length > 0"
-                class="sticky bottom-0 bg-surface-dark/95 backdrop-blur border-t border-brand-500/30 rounded-xl px-4 py-3 flex items-center justify-between gap-4 shadow-xl shadow-brand-500/10"
+            class="sticky bottom-0 bg-surface/95 backdrop-blur border-t border-brand-500/30 rounded-xl px-4 py-3 flex items-center justify-between gap-4 shadow-xl shadow-brand-500/10"
             >
                 <div>
                     <p class="text-sm font-bold text-white">

@@ -22,7 +22,7 @@ const formatCurrency = (amount, currency = 'USD') => {
 <template>
     <Head title="Explorar Sorteos" />
 
-    <div class="min-h-screen bg-surface-dark text-white flex flex-col">
+        <div class="min-h-screen bg-surface text-white flex flex-col">
         <!-- Navegación Minimalista -->
         <nav class="absolute top-0 left-0 w-full z-50 py-6 px-4">
             <div class="max-w-7xl mx-auto flex items-center justify-between">
@@ -34,7 +34,7 @@ const formatCurrency = (amount, currency = 'USD') => {
         </nav>
 
         <!-- Encabezado de la página -->
-        <div class="relative bg-surface-dark pt-32 pb-20 overflow-hidden border-b border-surface-300/10">
+            <div class="relative bg-surface pt-32 pb-20 overflow-hidden border-b border-surface-300/10">
             <!-- Patrón de fondo sutil -->
             <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0); background-size: 24px 24px;"></div>
             
@@ -58,7 +58,7 @@ const formatCurrency = (amount, currency = 'USD') => {
                          class="group bg-surface-lighter rounded-2xl overflow-hidden shadow-xl border border-surface-300/10 hover:border-brand-500/50 hover:shadow-brand-500/20 transition-all duration-300 flex flex-col hover:-translate-y-1">
                         
                         <!-- Imagen Principal con status overlay -->
-                        <div class="aspect-[4/3] w-full overflow-hidden relative bg-surface-dark">
+                    <div class="aspect-[4/3] w-full overflow-hidden relative bg-surface">
                             <div class="absolute top-4 left-4 z-10 flex flex-col gap-2">
                                 <span class="bg-surface-lighter/80 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full border border-surface-300/20 shadow-lg flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -75,7 +75,7 @@ const formatCurrency = (amount, currency = 'USD') => {
                             
                             <img :src="raffle.image_url" :alt="raffle.title" 
                                 class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                            <div class="absolute inset-0 bg-gradient-to-t from-surface-dark via-transparent to-transparent opacity-80"></div>
+                        <div class="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent opacity-80"></div>
                         </div>
 
                         <!-- Info del Sorteo -->

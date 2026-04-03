@@ -310,6 +310,7 @@ const formatMoney = (amount, currency = 'USD') => {
         <RaffleModal 
             :is-open="isModalOpen" 
             :raffle-id="activeRaffleId" 
+            :raffle="featuredRaffles.find((raffle) => raffle.id === activeRaffleId) || otherRaffles.find((raffle) => raffle.id === activeRaffleId) || null"
             @close="isModalOpen = false" 
         />
     </div>

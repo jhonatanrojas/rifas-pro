@@ -3,23 +3,22 @@ import { ref } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
 import ApplicationLogo from '@/Components/ApplicationLogo.vue'
 import UserIcon from '@/Components/Icons/UserIcon.vue'
-import HomeIcon from '@/Components/Icons/HomeIcon.vue'
 import TicketIcon from '@/Components/Icons/TicketIcon.vue'
-import TrophyIcon from '@/Components/Icons/TrophyIcon.vue'
 import ChartIcon from '@/Components/Icons/ChartBarIcon.vue'
 import SettingsIcon from '@/Components/Icons/SettingsIcon.vue'
 import OfflineBanner from '@/Components/PWA/OfflineBanner.vue'
+import PushNotificationConsent from '@/Components/PWA/PushNotificationConsent.vue'
 
 const page = usePage()
 const sidebarOpen = ref(false)
 const sidebarCollapsed = ref(false)
 
 const adminItems = [
-    { label: 'Dashboard',      icon: ChartIcon,   route: 'admin.dashboard',      active: 'admin.dashboard' },
-    { label: 'Sorteos',        icon: TicketIcon,  route: 'admin.raffles.index',  active: 'admin.raffles.*' },
-    { label: 'Ventas/Cajas',   icon: ChartIcon,   route: 'admin.orders.index',   active: 'admin.orders.*' },
-    { label: 'Usuarios',       icon: UserIcon,    route: 'admin.users.index',    active: 'admin.users.*' },
-    { label: 'Configuración',  icon: SettingsIcon,route: 'admin.settings',       active: 'admin.settings' },
+    { label: 'Panel', icon: ChartIcon, route: 'admin.dashboard', active: 'admin.dashboard' },
+    { label: 'Rifas', icon: TicketIcon, route: 'admin.raffles.index', active: 'admin.raffles.*' },
+    { label: 'Participantes', icon: UserIcon, route: 'admin.participants.index', active: 'admin.participants.*' },
+    { label: 'Pagos', icon: ChartIcon, route: 'admin.payments.index', active: 'admin.payments.*' },
+    { label: 'Configuración', icon: SettingsIcon, route: 'admin.settings', active: 'admin.settings' },
 ]
 
 const isRouteActive = (routeName) => route().current(routeName)
@@ -28,8 +27,8 @@ const isRouteActive = (routeName) => route().current(routeName)
 <template>
     <div class="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-brand-500 selection:text-white">
         <OfflineBanner />
+        <PushNotificationConsent />
 
-        <!-- Mobile overlay -->
         <Transition
             enter-active-class="transition-opacity duration-300"
             enter-from-class="opacity-0"
@@ -45,7 +44,6 @@ const isRouteActive = (routeName) => route().current(routeName)
             />
         </Transition>
 
-        <!-- Sidebar -->
         <Transition
             enter-active-class="transition-transform duration-300"
             enter-from-class="-translate-x-full"
@@ -55,23 +53,29 @@ const isRouteActive = (routeName) => route().current(routeName)
             leave-to-class="-translate-x-full"
         >
             <aside
-                v-show="sidebarOpen || true"
                 :class="[
-                    'fixed left-0 top-0 bottom-0 bg-zinc-900 border-r border-white/5 flex flex-col z-[60] shadow-2xl transition-all duration-300',
-                    // Mobile: slide in/out
-                    'translate-x-0',
+                    'fixed left-0 top-0 bottom-0 bg-zinc-900 border-r border-white/5 flex flex-col z-[60] shadow-2xl transition-transform duration-300',
                     sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
-                    // Desktop: collapsible width
                     sidebarCollapsed ? 'lg:w-20' : 'lg:w-64',
-                    'w-64',
+                    'w-[18rem] max-w-[85vw] lg:max-w-none',
                 ]"
             >
-                <!-- Logo + Collapse Toggle (desktop) -->
                 <div class="p-6 pb-4 flex items-center justify-between">
                     <Link :href="route('admin.dashboard')" class="overflow-hidden">
                         <ApplicationLogo :class="['h-8 transition-all duration-300', sidebarCollapsed ? 'w-8' : 'w-auto']" />
                     </Link>
                     <button
+                        type="button"
+                        @click="sidebarOpen = false"
+                        class="lg:hidden p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+                        aria-label="Cerrar navegación"
+                    >
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    <button
+                        type="button"
                         @click="sidebarCollapsed = !sidebarCollapsed"
                         class="hidden lg:flex p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-colors ml-2 flex-shrink-0"
                         :title="sidebarCollapsed ? 'Expandir' : 'Colapsar'"
@@ -84,7 +88,7 @@ const isRouteActive = (routeName) => route().current(routeName)
 
                 <div v-if="!sidebarCollapsed" class="px-6 mb-4">
                     <div class="px-3 py-1 inline-block rounded-lg bg-brand-500/10 border border-brand-500/20 text-[10px] uppercase font-black tracking-widest text-brand-400">
-                        Panel Admin
+                        Panel administrativo
                     </div>
                 </div>
 
@@ -106,7 +110,6 @@ const isRouteActive = (routeName) => route().current(routeName)
                         >
                             {{ item.label }}
                         </span>
-                        <!-- Tooltip cuando collapsed -->
                         <span
                             v-if="sidebarCollapsed"
                             class="hidden lg:block absolute left-full ml-3 px-2 py-1 bg-zinc-800 border border-white/10 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50"
@@ -116,7 +119,6 @@ const isRouteActive = (routeName) => route().current(routeName)
                     </Link>
                 </nav>
 
-                <!-- User + Logout -->
                 <div class="p-4 border-t border-white/5 space-y-3">
                     <div v-if="!sidebarCollapsed" class="flex items-center gap-3 px-2">
                         <div class="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center border border-white/10 uppercase font-black text-brand-500 flex-shrink-0 text-sm">
@@ -137,20 +139,17 @@ const isRouteActive = (routeName) => route().current(routeName)
                         <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
-                        <span :class="sidebarCollapsed ? 'lg:hidden' : ''">Cerrar Sesión</span>
+                        <span :class="sidebarCollapsed ? 'lg:hidden' : ''">Cerrar sesión</span>
                     </Link>
                 </div>
             </aside>
         </Transition>
 
-        <!-- Main Content -->
         <div
             class="flex flex-col transition-all duration-300"
             :class="sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'"
         >
-            <!-- Top Header -->
             <header class="sticky top-0 h-16 flex items-center px-6 bg-zinc-950/80 backdrop-blur-md z-40 border-b border-white/5 justify-between">
-                <!-- Mobile hamburger -->
                 <button
                     @click="sidebarOpen = !sidebarOpen"
                     class="lg:hidden p-2 text-zinc-400 hover:text-white transition-colors rounded-xl hover:bg-white/5"
@@ -160,22 +159,20 @@ const isRouteActive = (routeName) => route().current(routeName)
                     </svg>
                 </button>
 
-                <!-- Breadcrumb desktop -->
                 <div class="hidden lg:flex items-center gap-3 text-sm font-medium text-zinc-500">
                     <Link :href="route('admin.dashboard')" class="hover:text-white transition-colors">Admin</Link>
                     <span class="opacity-30">/</span>
                     <span class="text-white">
-                        <slot name="headerText">Dashboard</slot>
+                        <slot name="headerText">Panel</slot>
                     </span>
                 </div>
 
                 <div class="flex items-center gap-4 ml-auto">
-                    <!-- Payments pending badge — slot opcional -->
                     <slot name="headerBadge" />
 
                     <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-[10px] font-black text-green-500">
                         <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                        <span>SISTEMA ONLINE</span>
+                        <span>SISTEMA EN LÍNEA</span>
                     </div>
 
                     <Link href="/" class="hidden lg:flex text-xs font-bold text-zinc-500 hover:text-white transition-colors items-center gap-2 border-l border-white/10 pl-4">
@@ -187,10 +184,9 @@ const isRouteActive = (routeName) => route().current(routeName)
                 </div>
             </header>
 
-            <!-- Page Body -->
-            <main class="flex-1 p-6 lg:p-10">
-                <div v-if="$slots.header" class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                    <div class="space-y-1">
+            <main class="flex-1 p-4 sm:p-6 lg:p-10">
+                <div v-if="$slots.header" class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 lg:mb-8">
+                    <div class="space-y-1 max-w-3xl">
                         <h1 class="text-2xl lg:text-3xl font-black text-white leading-none">
                             <slot name="header" />
                         </h1>

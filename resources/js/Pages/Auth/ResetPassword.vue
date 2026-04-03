@@ -15,6 +15,10 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    redirect: {
+        type: String,
+        default: '/mis-rifas',
+    },
 });
 
 const form = useForm({
@@ -22,6 +26,7 @@ const form = useForm({
     email: props.email,
     password: '',
     password_confirmation: '',
+    redirect: props.redirect,
 });
 
 const submit = () => {

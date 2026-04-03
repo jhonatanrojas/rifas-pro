@@ -9,6 +9,7 @@ use App\Models\DrawAudit;
 use App\Models\Raffle;
 use App\Models\Ticket;
 use App\Models\Winner;
+use App\Exceptions\Domain\InsufficientTicketsException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -33,29 +34,50 @@ class DrawService
             $participantsHash     = $this->auditHashService->generateParticipantsHash($raffle->id);
             $participantsSnapshot = $this->auditHashService->buildParticipantsSnapshot($raffle->id);
 
-            DrawAudit::create([
-                'raffle_id'              => $raffle->id,
-                'participants_hash'      => $participantsHash,
-                'participants_snapshot'  => $participantsSnapshot,
-                'algorithm_version'      => '1.0',
-                'seed'                   => null,
-                'drawn_at'               => now(),
-                'created_by'             => $dto->adminUserId,
-            ]);
+            $soldTicketsQuery = Ticket::where('raffle_id', $raffle->id)->where('status', 'sold');
+            $soldTickets = $soldTicketsQuery->with('user')->get();
 
-            $soldTicketIds = Ticket::where('raffle_id', $raffle->id)
-                ->where('status', 'sold')
-                ->pluck('id')
-                ->toArray();
+            if ($soldTickets->isEmpty()) {
+                DrawAudit::create([
+                    'raffle_id'              => $raffle->id,
+                    'participants_hash'      => $participantsHash,
+                    'participants_snapshot'  => $participantsSnapshot,
+                    'algorithm_version'      => '1.1',
+                    'seed'                   => null,
+                    'execution_mode'         => $dto->executionMode,
+                    'external_reference'     => $dto->externalReference,
+                    'winning_number'         => $dto->winningNumber,
+                    'drawn_at'               => now(),
+                    'created_by'             => $dto->adminUserId,
+                ]);
 
-            if (empty($soldTicketIds)) {
                 $raffle->update(['status' => 'drawn']);
                 return collect();
             }
 
-            $winnerIndex    = random_int(0, count($soldTicketIds) - 1);
-            $winnerTicketId = $soldTicketIds[$winnerIndex];
-            $winnerTicket   = Ticket::with('user')->findOrFail($winnerTicketId);
+            DrawAudit::create([
+                'raffle_id'              => $raffle->id,
+                'participants_hash'      => $participantsHash,
+                'participants_snapshot'  => $participantsSnapshot,
+                'algorithm_version'      => '1.1',
+                'seed'                   => null,
+                'execution_mode'         => $dto->executionMode,
+                'external_reference'     => $dto->externalReference,
+                'winning_number'         => $dto->winningNumber,
+                'drawn_at'               => now(),
+                'created_by'             => $dto->adminUserId,
+            ]);
+
+            $winnerTicket = null;
+            if ($dto->executionMode === 'manual_external' && $dto->winningNumber !== null) {
+                $winnerTicket = $soldTickets->firstWhere('number', $dto->winningNumber);
+
+                if (! $winnerTicket) {
+                    throw new InsufficientTicketsException('El numero ganador externo no corresponde a un ticket vendido.');
+                }
+            } else {
+                $winnerTicket = $soldTickets[random_int(0, $soldTickets->count() - 1)];
+            }
 
             $winner = Winner::create([
                 'raffle_id'         => $raffle->id,

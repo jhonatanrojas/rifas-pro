@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Raffle;
+use App\Services\NotificationTemplateService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -26,11 +27,18 @@ class WinnerNotification extends Notification
 
     public function toWebPush($notifiable, $notification)
     {
+        $prize = $this->raffle->winners()->latest()->value('prize_description') ?? 'Premio principal';
+        $template = app(NotificationTemplateService::class)->render('push', 'winner', [
+            'nombre' => $notifiable->name ?? '',
+            'rifa' => $this->raffle->title,
+            'premio' => $prize,
+        ]);
+
         return (new WebPushMessage)
-            ->title('🏆 ¡ERES EL GANADOR!')
+            ->title($template['title'])
             ->icon('/pwa-192x192.png')
             ->badge('/pwa-192x192.png')
-            ->body("¡Felicidades! Tu ticket ha sido el ganador en el sorteo: {$this->raffle->title}. Contacta con el administrador.")
+            ->body($template['body'])
             ->action('Ver detalles', 'view_raffle')
             ->data(['url' => route('purchases.index')]);
     }

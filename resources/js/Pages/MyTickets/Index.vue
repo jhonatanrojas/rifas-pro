@@ -164,7 +164,7 @@ function hasWinningTicket(order) {
                                             : 'bg-surface-lighter text-surface-300 border-surface-300/20'
                                     ]"
                                 >
-                                    {{ String(ticket.number).padStart(4, '0') }}
+                                    {{ ticket.display_number ?? String(ticket.number).padStart(order.raffle?.number_digits || 4, '0') }}
                                     <span v-if="ticket.status === 'winner'" class="ml-1">🏆</span>
                                 </span>
                             </div>

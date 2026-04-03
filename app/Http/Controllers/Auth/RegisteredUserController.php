@@ -47,6 +47,12 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        $redirect = $request->query('redirect', route('dashboard', absolute: false));
+
+        if (!is_string($redirect) || !str_starts_with($redirect, '/')) {
+            $redirect = route('dashboard', absolute: false);
+        }
+
+        return redirect()->intended($redirect);
     }
 }

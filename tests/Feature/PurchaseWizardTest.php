@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Raffle;
+use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Order;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -31,6 +32,10 @@ class PurchaseWizardTest extends TestCase
             'draw_date' => now()->addDays(1),
             'owner_id' => $this->admin->id,
         ]);
+
+        Ticket::factory()->count(10)->create([
+            'raffle_id' => $this->raffle->id,
+        ]);
     }
 
     public function test_can_view_raffle_numbers_page()
@@ -40,7 +45,9 @@ class PurchaseWizardTest extends TestCase
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
             ->component('Raffle/Show')
-            ->has('raffle')
+            ->where('raffle.slug', 'wizard-raffle')
+            ->has('tickets', 10)
+            ->where('tickets_stats.available', 10)
         );
     }
 }

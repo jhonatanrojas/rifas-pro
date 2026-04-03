@@ -17,8 +17,14 @@ class PasswordResetLinkController extends Controller
      */
     public function create(): Response
     {
+        $redirect = request()->query('redirect');
+        if (is_string($redirect) && str_starts_with($redirect, '/')) {
+            request()->session()->put('auth.redirect', $redirect);
+        }
+
         return Inertia::render('Auth/ForgotPassword', [
             'status' => session('status'),
+            'redirect' => session('auth.redirect'),
         ]);
     }
 
@@ -31,7 +37,14 @@ class PasswordResetLinkController extends Controller
     {
         $request->validate([
             'email' => 'required|email',
+            'redirect' => 'nullable|string',
         ]);
+
+        $redirect = $request->input('redirect', session('auth.redirect', route('purchases.index', absolute: false)));
+        if (!is_string($redirect) || !str_starts_with($redirect, '/')) {
+            $redirect = route('purchases.index', absolute: false);
+        }
+        $request->session()->put('auth.redirect', $redirect);
 
         // We will send the password reset link to this user. Once we have attempted
         // to send the link, we will examine the response then see the message we

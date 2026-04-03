@@ -28,4 +28,17 @@ class RegistrationTest extends TestCase
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
     }
+
+    public function test_new_users_can_register_and_redirect_to_custom_path(): void
+    {
+        $response = $this->post('/register?redirect=/mis-rifas', [
+            'name' => 'Test User 2',
+            'email' => 'test2@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect('/mis-rifas');
+    }
 }

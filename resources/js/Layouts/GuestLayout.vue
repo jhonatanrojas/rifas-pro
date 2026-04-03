@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import ApplicationLogo from '@/Components/ApplicationLogo.vue'
 import InstallBanner from '@/Components/PWA/InstallBanner.vue'
 import OfflineBanner from '@/Components/PWA/OfflineBanner.vue'
+import PushNotificationConsent from '@/Components/PWA/PushNotificationConsent.vue'
 import { Link } from '@inertiajs/vue3'
 
 // Scroll-hide behavior: ocultar header al bajar, mostrar al subir
@@ -23,6 +24,7 @@ onUnmounted(() => window.removeEventListener('scroll', handleScroll))
     <div class="min-h-screen bg-surface selection:bg-brand-500 selection:text-white">
         <!-- Offline Banner -->
         <OfflineBanner />
+        <PushNotificationConsent />
 
         <!-- Decorative Background -->
         <div class="fixed inset-0 bg-mesh opacity-20 pointer-events-none"></div>

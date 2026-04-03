@@ -52,7 +52,7 @@ function truncate(text, max = 100) {
                     </p>
                     <!-- Ticket badge (golden) -->
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
-                        🎟️ #{{ String(winner.ticket?.number ?? 0).padStart(4, '0') }}
+                        🎟️ #{{ winner.ticket?.display_number ?? String(winner.ticket?.number ?? 0).padStart(winner.raffle?.number_digits || 4, '0') }}
                     </span>
                 </div>
             </div>

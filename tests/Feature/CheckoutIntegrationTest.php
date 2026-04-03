@@ -67,7 +67,27 @@ class CheckoutIntegrationTest extends TestCase
         $response = $this->postJson("/api/raffles/{$this->raffle->id}/purchase", $payload);
 
         $response->assertStatus(200)
-                 ->assertJsonPath('status', 'success');
+                 ->assertJsonPath('status', 'success')
+                 ->assertJsonPath('message', 'Tu pago fue recibido y se encuentra en revision.')
+                 ->assertJsonStructure([
+                     'verification_url',
+                     'tickets_url',
+                     'order' => [
+                         'id',
+                         'status',
+                         'total',
+                         'currency',
+                         'raffle',
+                         'tickets',
+                         'payment',
+                     ],
+                 ]);
+
+        $this->assertStringContainsString('/comprobantes/', $response->json('verification_url'));
+        $this->assertStringContainsString('signature=', $response->json('verification_url'));
+        $this->assertNull($response->json('tickets_url'));
+        $this->assertCount(2, $response->json('order.tickets'));
+        $this->assertEquals('pending', $response->json('order.status'));
 
         // Check if user was created
         $this->assertDatabaseHas('users', [

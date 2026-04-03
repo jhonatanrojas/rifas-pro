@@ -2,12 +2,14 @@
 
 namespace App\Providers;
 
+use Illuminate\Auth\Notifications\ResetPassword;
 use App\Services\Notifications\Providers\CallMeBotWhatsAppService;
 use App\Services\Notifications\Providers\TwilioWhatsAppService;
 use App\Services\Notifications\WhatsAppServiceInterface;
 use App\Services\OCR\MockOCRService;
 use App\Services\OCR\OCRServiceInterface;
 use App\Services\OCR\TesseractOCRService;
+use App\Services\SystemSettingsService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -28,7 +30,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(WhatsAppServiceInterface::class, function () {
-            return match (config('services.whatsapp.provider', 'callmebot')) {
+            $provider = app(SystemSettingsService::class)->get('whatsapp_provider', config('services.whatsapp.provider', 'callmebot'));
+
+            return match ($provider) {
                 'twilio' => new TwilioWhatsAppService(),
                 default => new CallMeBotWhatsAppService(),
             };
@@ -41,6 +45,20 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Vite::prefetch(concurrency: 3);
+
+        ResetPassword::createUrlUsing(function ($notifiable, string $token) {
+            $redirect = session('auth.redirect', route('purchases.index', absolute: false));
+
+            if (!is_string($redirect) || !str_starts_with($redirect, '/')) {
+                $redirect = route('purchases.index', absolute: false);
+            }
+
+            return route('password.reset', [
+                'token' => $token,
+                'email' => $notifiable->getEmailForPasswordReset(),
+                'redirect' => $redirect,
+            ], false);
+        });
 
         RateLimiter::for('search', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
