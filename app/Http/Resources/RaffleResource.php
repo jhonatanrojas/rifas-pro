@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,7 +16,7 @@ class RaffleResource extends JsonResource
             'slug' => $this->slug,
             'description' => $this->description,
             'category' => $this->category,
-            'cover_image' => $this->cover_image ? asset('storage/' . $this->cover_image) : null,
+            'cover_image' => $this->cover_image ? Storage::disk('public')->url($this->cover_image) : null,
             'ticket_price' => (float) $this->ticket_price,
             'currency' => $this->currency,
             'total_tickets' => (int) $this->total_tickets,
