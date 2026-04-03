@@ -178,10 +178,10 @@ const formatMoney = (amount, currency = 'USD') => {
                         </div>
 
                         <!-- Image -->
-                        <img 
-                            :src="'/storage/' + raffle.cover_image" 
+                        <img
+                            :src="raffle.cover_image"
                             :alt="raffle.title"
-                            class="w-full h-full object-cover object-center transform transition-transform duration-700 group-hover:scale-110" 
+                            class="w-full h-full object-cover object-center transform transition-transform duration-700 group-hover:scale-110"
                         />
                     </div>
 
@@ -236,10 +236,10 @@ const formatMoney = (amount, currency = 'USD') => {
                 <div v-for="raffle in otherRaffles" :key="raffle.id" class="group flex flex-col bg-surface-light rounded-2xl overflow-hidden border border-surface-300/10 hover:border-surface-300/30 transition-all duration-300">
                     <div class="relative h-48 overflow-hidden bg-surface-lighter">
                         <div class="absolute inset-0 bg-gradient-to-t from-surface-light via-transparent to-transparent z-10 opacity-90"></div>
-                        <img 
-                            :src="'/storage/' + raffle.cover_image" 
+                        <img
+                            :src="raffle.cover_image"
                             :alt="raffle.title"
-                            class="w-full h-full object-cover object-center transform transition-transform duration-500 group-hover:scale-105" 
+                            class="w-full h-full object-cover object-center transform transition-transform duration-500 group-hover:scale-105"
                         />
                         <div class="absolute bottom-3 left-3 z-20">
                             <span class="px-2.5 py-1 rounded-md bg-surface-900/80 backdrop-blur-sm text-xs font-bold text-white border border-white/10">
@@ -249,7 +249,7 @@ const formatMoney = (amount, currency = 'USD') => {
                     </div>
                     <div class="p-4 flex flex-col flex-grow">
                         <h3 class="text-lg font-bold text-white line-clamp-1 mb-1">{{ raffle.title }}</h3>
-                        <p class="text-xs text-surface-400 mb-4">{{ raffle.available_count }} tickets disponibles</p>
+                        <p class="text-xs text-surface-400 mb-4">{{ raffle.tickets_available_count }} tickets disponibles</p>
                         <Link :href="route('raffles.show', raffle.slug)" class="mt-auto w-full py-2 bg-surface-lighter hover:bg-surface-300/20 text-white text-sm font-semibold text-center rounded-lg transition-colors border border-surface-300/10">
                             Participar
                         </Link>

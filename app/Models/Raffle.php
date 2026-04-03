@@ -48,6 +48,11 @@ class Raffle extends Model
         'available_count',
     ];
 
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
     // ─── Scopes ───────────────────────────────────────────
     public function scopeActive($query)
     {

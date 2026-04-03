@@ -2,15 +2,17 @@
 
 namespace App\Providers;
 
+use App\Services\Notifications\Providers\CallMeBotWhatsAppService;
+use App\Services\Notifications\Providers\TwilioWhatsAppService;
+use App\Services\Notifications\WhatsAppServiceInterface;
 use App\Services\OCR\MockOCRService;
 use App\Services\OCR\OCRServiceInterface;
 use App\Services\OCR\TesseractOCRService;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
-
-use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Http\Request;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,13 +27,11 @@ class AppServiceProvider extends ServiceProvider
                 : new TesseractOCRService();
         });
 
-        $this->app->bind(\App\Services\Notifications\WhatsAppServiceInterface::class, function () {
-             $provider = config('services.whatsapp.provider');
-             if ($provider === 'callmebot') {
-                 return new \App\Services\Notifications\Providers\CallMeBotWhatsAppService();
-             }
-             // Fallback for production?
-             return new \App\Services\Notifications\Providers\CallMeBotWhatsAppService();
+        $this->app->bind(WhatsAppServiceInterface::class, function () {
+            return match (config('services.whatsapp.provider', 'callmebot')) {
+                'twilio' => new TwilioWhatsAppService(),
+                default => new CallMeBotWhatsAppService(),
+            };
         });
     }
 

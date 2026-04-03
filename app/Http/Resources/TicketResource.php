@@ -10,10 +10,9 @@ class TicketResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id'     => $this->id,
             'number' => $this->number,
             'status' => $this->status,
-            'price' => (float) ($this->raffle->ticket_price ?? 0),
         ];
     }
 }

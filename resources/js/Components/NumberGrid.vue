@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import gsap from 'gsap'
 import { useBreakpoints } from '@/composables/useBreakpoints'
 
@@ -9,11 +9,16 @@ const props = defineProps({
     ticketPrice: { type: Number, default: 0 },
     currency: { type: String, default: 'USD' },
     maxSelection: { type: Number, default: 100 },
+    showSummary: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['update:modelValue', 'continue'])
 
 const { isMobile, isTablet } = useBreakpoints()
+
+const scrollRoot = ref(null)
+const scrollTop = ref(0)
+const viewportHeight = ref(0)
 
 // Filters
 const activeFilter = ref('all') // all | available | selected
@@ -22,9 +27,10 @@ const searchQuery = ref('')
 let searchDebounceTimer = null
 
 // Computed
-const maxNumber = computed(() => {
-    if (!props.tickets.length) return 0
-    return Math.max(...props.tickets.map(t => t.number))
+const gridCols = computed(() => {
+    if (isMobile.value) return 5
+    if (isTablet.value) return 8
+    return 10
 })
 
 const availableRanges = computed(() => {
@@ -34,13 +40,8 @@ const availableRanges = computed(() => {
         { label: '201-500', min: 201, max: 500 },
         { label: '501+', min: 501, max: Infinity },
     ]
-    return ranges.filter(r => props.tickets.some(t => t.number >= r.min && t.number <= r.max))
-})
 
-const gridCols = computed(() => {
-    if (isMobile.value) return 5
-    if (isTablet.value) return 8
-    return 10
+    return ranges.filter(r => props.tickets.some(t => t.number >= r.min && t.number <= r.max))
 })
 
 const debouncedSearch = ref('')
@@ -54,37 +55,35 @@ watch(searchQuery, (val) => {
 function matchesSearch(ticket) {
     const q = debouncedSearch.value
     if (!q) return true
+
     const num = String(ticket.number)
     const padded = String(ticket.number).padStart(4, '0')
-    // Exact match
+
     if (num === q || padded === q) return true
-    // Ends with
     if (num.endsWith(q)) return true
-    // Palindrome / capicúa
+
     if (q.toLowerCase() === 'capicua' || q.toLowerCase() === 'capicúa') {
         return padded === padded.split('').reverse().join('')
     }
-    // Pattern: starts with
+
     if (num.startsWith(q)) return true
+
     return false
 }
 
 const filteredTickets = computed(() => {
     let list = props.tickets
 
-    // Range filter
     if (activeRange.value) {
         list = list.filter(t => t.number >= activeRange.value.min && t.number <= activeRange.value.max)
     }
 
-    // Status filter
     if (activeFilter.value === 'available') {
         list = list.filter(t => t.status === 'available')
     } else if (activeFilter.value === 'selected') {
         list = list.filter(t => props.modelValue.includes(t.number))
     }
 
-    // Search filter
     if (debouncedSearch.value) {
         list = list.filter(t => matchesSearch(t))
     }
@@ -95,6 +94,59 @@ const filteredTickets = computed(() => {
 const isHighlighted = (ticket) => {
     return debouncedSearch.value ? matchesSearch(ticket) : false
 }
+
+const rowHeight = 58
+const overscanRows = 3
+
+const shouldVirtualize = computed(() => filteredTickets.value.length > 500)
+const totalRows = computed(() => Math.ceil(filteredTickets.value.length / gridCols.value))
+const visibleRowCount = computed(() => Math.max(1, Math.ceil((viewportHeight.value || 0) / rowHeight) + overscanRows * 2))
+const startRow = computed(() => {
+    if (!shouldVirtualize.value) return 0
+    return Math.max(0, Math.floor(scrollTop.value / rowHeight) - overscanRows)
+})
+const endRow = computed(() => {
+    if (!shouldVirtualize.value) return totalRows.value
+    return Math.min(totalRows.value, startRow.value + visibleRowCount.value)
+})
+const startIndex = computed(() => startRow.value * gridCols.value)
+const endIndex = computed(() => Math.min(filteredTickets.value.length, endRow.value * gridCols.value))
+const visibleTickets = computed(() => {
+    if (!shouldVirtualize.value) return filteredTickets.value
+    return filteredTickets.value.slice(startIndex.value, endIndex.value)
+})
+const topSpacer = computed(() => (shouldVirtualize.value ? startRow.value * rowHeight : 0))
+const bottomSpacer = computed(() => {
+    if (!shouldVirtualize.value) return 0
+    return Math.max(0, (totalRows.value - endRow.value) * rowHeight)
+})
+
+function syncViewport() {
+    viewportHeight.value = scrollRoot.value?.clientHeight ?? 0
+}
+
+function handleScroll() {
+    scrollTop.value = scrollRoot.value?.scrollTop ?? 0
+}
+
+onMounted(() => {
+    syncViewport()
+    window.addEventListener('resize', syncViewport)
+})
+
+onBeforeUnmount(() => {
+    window.removeEventListener('resize', syncViewport)
+    clearTimeout(searchDebounceTimer)
+})
+
+watch([filteredTickets, gridCols], async () => {
+    scrollTop.value = 0
+    if (scrollRoot.value) {
+        scrollRoot.value.scrollTop = 0
+    }
+    await nextTick()
+    syncViewport()
+})
 
 // Ticket actions
 function toggleTicket(ticket, event) {
@@ -110,12 +162,10 @@ function toggleTicket(ticket, event) {
         selected.push(ticket.number)
     }
 
-    // GSAP animation
     if (event?.currentTarget) {
         animateSelect(event.currentTarget)
     }
 
-    // Haptic feedback
     navigator.vibrate?.(10)
 
     emit('update:modelValue', selected)
@@ -128,6 +178,7 @@ function animateSelect(el) {
 function selectLucky() {
     const available = props.tickets.filter(t => t.status === 'available' && !props.modelValue.includes(t.number))
     if (!available.length) return
+
     const lucky = available[Math.floor(Math.random() * available.length)]
     const selected = [...props.modelValue, lucky.number]
     navigator.vibrate?.(20)
@@ -183,9 +234,9 @@ function getTicketClass(ticket) {
     if (ticket.status === 'sold') {
         return 'bg-surface-lighter/30 border-transparent text-surface-400/40 cursor-not-allowed line-through'
     }
-    // available
+
     const base = 'bg-surface-light border-surface-300/20 hover:border-brand-500 text-white cursor-pointer'
-    return highlighted ? base + ' ring-1 ring-yellow-400/60' : base
+    return highlighted ? `${base} ring-1 ring-yellow-400/60` : base
 }
 </script>
 
@@ -193,7 +244,6 @@ function getTicketClass(ticket) {
     <div class="flex flex-col gap-3">
         <!-- Filters Row -->
         <div class="flex flex-wrap gap-2 items-center">
-            <!-- Status Filters -->
             <div class="flex gap-1 bg-surface-lighter rounded-xl p-1">
                 <button
                     v-for="f in [{ key: 'all', label: 'Todos' }, { key: 'available', label: 'Disponibles' }, { key: 'selected', label: 'Seleccionados' }]"
@@ -211,7 +261,6 @@ function getTicketClass(ticket) {
                 </button>
             </div>
 
-            <!-- Lucky Button -->
             <button
                 @click="selectLucky"
                 class="px-3 py-1.5 rounded-xl text-xs font-bold bg-accent-neon/10 border border-accent-neon/30 text-accent-neon hover:bg-accent-neon/20 transition-all flex items-center gap-1"
@@ -219,7 +268,6 @@ function getTicketClass(ticket) {
                 <span>🍀</span> Suerte
             </button>
 
-            <!-- Range chips -->
             <div class="flex gap-1 flex-wrap">
                 <button
                     v-for="range in availableRanges"
@@ -276,8 +324,12 @@ function getTicketClass(ticket) {
 
         <!-- Grid -->
         <div
+            ref="scrollRoot"
+            @scroll="handleScroll"
             class="max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar"
         >
+            <div :style="{ height: `${topSpacer}px` }"></div>
+
             <div
                 :class="[
                     'grid gap-1.5',
@@ -285,7 +337,7 @@ function getTicketClass(ticket) {
                 ]"
             >
                 <button
-                    v-for="ticket in filteredTickets"
+                    v-for="ticket in visibleTickets"
                     :key="ticket.id"
                     :id="`ticket-${ticket.number}`"
                     @click="(e) => toggleTicket(ticket, e)"
@@ -299,6 +351,8 @@ function getTicketClass(ticket) {
                     {{ String(ticket.number).padStart(4, '0') }}
                 </button>
             </div>
+
+            <div :style="{ height: `${bottomSpacer}px` }"></div>
 
             <!-- Empty state -->
             <div v-if="filteredTickets.length === 0" class="flex flex-col items-center justify-center py-16 text-surface-400">
@@ -319,7 +373,7 @@ function getTicketClass(ticket) {
             leave-to-class="opacity-0 translate-y-4"
         >
             <div
-                v-if="modelValue.length > 0"
+                v-if="showSummary && modelValue.length > 0"
                 class="sticky bottom-0 bg-surface-dark/95 backdrop-blur border-t border-brand-500/30 rounded-xl px-4 py-3 flex items-center justify-between gap-4 shadow-xl shadow-brand-500/10"
             >
                 <div>

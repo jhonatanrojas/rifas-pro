@@ -40,7 +40,13 @@ return [
         'callmebot' => [
             'phone'  => env('CALLMEBOT_PHONE'),
             'apikey' => env('CALLMEBOT_API_KEY'),
-        ]
-    ]
+        ],
+        'twilio' => [
+            'sid' => env('TWILIO_ACCOUNT_SID'),
+            'token' => env('TWILIO_AUTH_TOKEN'),
+            'from' => env('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'),
+            'default_to' => env('TWILIO_WHATSAPP_TO'),
+        ],
+    ],
 
 ];

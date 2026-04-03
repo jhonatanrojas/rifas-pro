@@ -45,6 +45,11 @@ class RaffleFactory extends Factory
         return $this->state(['status' => 'drawn']);
     }
 
+    public function active(): static
+    {
+        return $this->state(['status' => 'active']);
+    }
+
     public function paused(): static
     {
         return $this->state(['status' => 'paused']);

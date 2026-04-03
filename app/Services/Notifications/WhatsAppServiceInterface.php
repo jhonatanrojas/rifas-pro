@@ -10,4 +10,5 @@ interface WhatsAppServiceInterface
 {
     public function sendTicket(User $user, Order $order, string $receiptImageUrl): bool;
     public function sendDrawReminder(Raffle $raffle): int;
+    public function sendWinnerNotification(User $user, Raffle $raffle): bool;
 }

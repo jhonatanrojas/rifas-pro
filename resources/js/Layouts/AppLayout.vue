@@ -9,6 +9,7 @@ import TrophyIcon from '@/Components/Icons/TrophyIcon.vue';
 import OfflineBanner from '@/Components/PWA/OfflineBanner.vue';
 import InstallBanner from '@/Components/PWA/InstallBanner.vue';
 import UpdatePrompt from '@/Components/PWA/UpdatePrompt.vue';
+import PushNotificationConsent from '@/Components/PWA/PushNotificationConsent.vue';
 
 const page = usePage();
 const showingNavigationDropdown = ref(false);
@@ -31,6 +32,7 @@ const isRouteActive = (routeName) => {
         <OfflineBanner />
         <InstallBanner />
         <UpdatePrompt />
+        <PushNotificationConsent />
         <!-- Background Accents -->
         <div class="fixed inset-0 bg-mesh opacity-10 pointer-events-none"></div>
         <div class="fixed top-[-10%] right-[-10%] w-[500px] h-[500px] bg-brand-500/5 blur-[120px] rounded-full pointer-events-none"></div>

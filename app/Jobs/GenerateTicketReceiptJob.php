@@ -3,14 +3,13 @@
 namespace App\Jobs;
 
 use App\Models\Order;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\TicketReceiptGenerator;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class GenerateTicketReceiptJob implements ShouldQueue
 {
@@ -32,16 +31,16 @@ class GenerateTicketReceiptJob implements ShouldQueue
             return;
         }
 
-        $pdf = Pdf::loadView('receipts.ticket', ['order' => $order]);
-
-        $path = "receipts/" . now()->format('Y/m') . "/order-{$order->id}.pdf";
-        Storage::put("public/" . $path, $pdf->output());
+        $receipt = app(TicketReceiptGenerator::class)->generate($order);
 
         $metadata = $order->metadata ?? [];
-        $metadata['receipt_path'] = $path;
+        $metadata['receipt_path'] = $receipt['path'];
+        $metadata['receipt_url'] = $receipt['url'];
+        $metadata['receipt_verification_url'] = $receipt['verification_url'];
+        $metadata['receipt_hash'] = $receipt['hash'];
         $order->update(['metadata' => $metadata]);
 
-        Log::info("GenerateTicketReceiptJob: receipt generated at {$path} for order #{$order->id}.");
+        Log::info("GenerateTicketReceiptJob: receipt generated at {$receipt['path']} for order #{$order->id}.");
     }
 
     public function failed(\Throwable $exception): void

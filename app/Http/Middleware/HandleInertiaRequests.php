@@ -34,6 +34,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'webpush' => [
+                'vapidPublicKey' => config('webpush.vapid.public_key'),
+            ],
         ];
     }
 }

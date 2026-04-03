@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
     modelValue: { type: [File, null], default: null },
@@ -14,11 +14,14 @@ const ocrFields = ref({ amount: '', reference: '', bank: '', confidence: '' })
 
 watch(() => props.modelValue, (file) => {
     if (!file) {
+        if (preview.value) URL.revokeObjectURL(preview.value)
         preview.value = null
         ocrState.value = 'idle'
         ocrFields.value = { amount: '', reference: '', bank: '', confidence: '' }
         return
     }
+
+    if (preview.value) URL.revokeObjectURL(preview.value)
     preview.value = URL.createObjectURL(file)
     startOcrSim()
 })
@@ -34,6 +37,10 @@ function handleFile(file) {
     if (!file) return
     if (file.size > 5 * 1024 * 1024) {
         alert('El archivo es demasiado grande. Máximo 5MB.')
+        return
+    }
+    if (!file.type.startsWith('image/')) {
+        alert('Solo se permiten imágenes para el comprobante.')
         return
     }
     emit('update:modelValue', file)
@@ -60,9 +67,14 @@ function onDragLeave() {
 }
 
 function removeFile() {
+    if (preview.value) URL.revokeObjectURL(preview.value)
     preview.value = null
     emit('update:modelValue', null)
 }
+
+onBeforeUnmount(() => {
+    if (preview.value) URL.revokeObjectURL(preview.value)
+})
 </script>
 
 <template>
@@ -90,13 +102,13 @@ function removeFile() {
 
                 <div>
                     <p class="text-sm font-bold text-white">Arrastra tu comprobante aquí</p>
-                    <p class="text-xs text-surface-400 mt-0.5">PNG, JPG o PDF — máx. 5MB</p>
+                    <p class="text-xs text-surface-400 mt-0.5">PNG o JPG — máx. 5MB</p>
                 </div>
 
                 <!-- Desktop: single button -->
                 <label class="hidden sm:block btn-secondary text-sm cursor-pointer">
                     Seleccionar archivo
-                    <input type="file" accept="image/*,application/pdf" class="hidden" @change="onFileInput" />
+                    <input type="file" accept="image/*" class="hidden" @change="onFileInput" />
                 </label>
 
                 <!-- Mobile: two buttons -->
@@ -107,7 +119,7 @@ function removeFile() {
                     </label>
                     <label class="flex items-center gap-1.5 btn-secondary text-xs cursor-pointer px-3 py-2">
                         <span>📁</span> Subir archivo
-                        <input type="file" accept="image/*,application/pdf" class="hidden" @change="onFileInput" />
+                        <input type="file" accept="image/*" class="hidden" @change="onFileInput" />
                     </label>
                 </div>
             </div>

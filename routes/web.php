@@ -1,7 +1,11 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PurchasesController;
+use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\RaffleController;
+use App\Http\Controllers\WinnersController;
+use App\Http\Resources\RaffleResource;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -10,8 +14,8 @@ Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'featuredRaffles' => \App\Models\Raffle::active()->featured()->latest()->take(3)->get(),
-        'otherRaffles' => \App\Models\Raffle::active()->where('is_featured', false)->latest()->take(6)->get(),
+        'featuredRaffles' => RaffleResource::collection(\App\Models\Raffle::active()->featured()->latest()->take(3)->get())->toArray(request()),
+        'otherRaffles' => RaffleResource::collection(\App\Models\Raffle::active()->where('is_featured', false)->latest()->take(6)->get())->toArray(request()),
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
     ]);
@@ -48,6 +52,14 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    // My Tickets & Winners
+    Route::get('/mis-rifas', [PurchasesController::class, 'index'])->name('purchases.index');
+    Route::get('/ganadores', [WinnersController::class, 'index'])->name('winners.index');
+    Route::post('/ganadores/{winner}/testimonio', [WinnersController::class, 'storeTestimony'])->name('winners.testimony.store');
+    Route::get('/dev/components', function () {
+        return Inertia::render('Dev/Components');
+    })->name('dev.components');
+
     // Purchase Wizard (Inertia)
     Route::get('/checkout/payment/{order}', [\App\Http\Controllers\PurchaseWizardController::class, 'showPayment'])->name('checkout.payment');
     Route::get('/checkout/confirmation/{order}', [\App\Http\Controllers\PurchaseWizardController::class, 'showConfirmation'])->name('checkout.confirmation');
@@ -58,7 +70,15 @@ Route::middleware('auth')->group(function () {
     // Affiliates
     Route::get('/afiliados', [\App\Http\Controllers\AffiliateController::class, 'dashboard'])->name('affiliates.dashboard');
     Route::post('/afiliados/codigo', [\App\Http\Controllers\AffiliateController::class, 'generateCode'])->name('affiliates.generate_code');
+
+    // WebPush Subscriptions
+    Route::post('/push/subscriptions', [\App\Http\Controllers\PushSubscriptionController::class, 'update'])->name('push.update');
+    Route::delete('/push/subscriptions', [\App\Http\Controllers\PushSubscriptionController::class, 'destroy'])->name('push.destroy');
 });
+
+Route::get('/comprobantes/{order}/verificar', [ReceiptController::class, 'verify'])
+    ->middleware('signed')
+    ->name('receipts.verify');
 
 // External Webhooks (CSRF exempt by tradition, handle in VerifyCsrfToken/Middleware)
 Route::post('/webhooks/stripe', [\App\Http\Controllers\PaymentController::class, 'stripeWebhook']);

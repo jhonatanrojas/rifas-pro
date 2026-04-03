@@ -26,7 +26,11 @@ class RaffleResource extends JsonResource
             'progress_percentage' => $this->total_tickets > 0 
                 ? round(($this->sold_count / $this->total_tickets) * 100, 2) 
                 : 0,
-            'combos' => ComboResource::collection($this->whenLoaded('combos')),
+            'combos' => $this->whenLoaded('combos', function () {
+                $this->combos->each->setRelation('raffle', $this->resource);
+
+                return ComboResource::collection($this->combos);
+            }),
         ];
     }
 }

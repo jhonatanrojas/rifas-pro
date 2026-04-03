@@ -33,9 +33,6 @@ class AdminRaffleController extends Controller
         return Inertia::render('Admin/Raffle/CreateOrEdit');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -45,17 +42,83 @@ class AdminRaffleController extends Controller
             'total_tickets' => 'required|integer|min:1',
             'currency' => 'required|string|size:3',
             'draw_date' => 'nullable|date',
+            'cover_image' => 'nullable|image|max:2048',
+            'combos' => 'nullable|array',
+            'combos.*.quantity' => 'required|integer|min:2',
+            'combos.*.price' => 'required|numeric|min:0',
         ]);
 
-        $validated['slug'] = Str::slug($validated['title']);
+        $validated['slug'] = Str::slug($validated['title']) . '-' . Str::random(5);
         $validated['status'] = 'draft';
+        $validated['owner_id'] = $request->user()->id;
 
-        $raffle = Raffle::create($validated);
+        if ($request->hasFile('cover_image')) {
+            $validated['cover_image'] = $request->file('cover_image')->store('raffles', 'public');
+        }
 
-        // Generate tickets if needed via service
-        // (appended to background job later)
+        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request) {
+            $raffle = Raffle::create($validated);
+            
+            if ($request->combos) {
+                foreach ($request->combos as $combo) {
+                    $raffle->combos()->create($combo);
+                }
+            }
+
+            // Optional: Dispatch ticket generation job here
+        });
 
         return redirect()->route('admin.raffles.index')->with('success', 'Rifa creada exitosamente');
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, Raffle $raffle)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'ticket_price' => 'required|numeric|min:0',
+            'total_tickets' => 'required|integer|min:1',
+            'currency' => 'required|string|size:3',
+            'draw_date' => 'nullable|date',
+            'cover_image' => 'nullable|image|max:2048',
+            'combos' => 'nullable|array',
+        ]);
+
+        if ($request->hasFile('cover_image')) {
+            if ($raffle->cover_image) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($raffle->cover_image);
+            }
+            $validated['cover_image'] = $request->file('cover_image')->store('raffles', 'public');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($raffle, $validated, $request) {
+            $raffle->update($validated);
+            
+            if ($request->has('combos')) {
+                $raffle->combos()->delete();
+                foreach ($request->combos as $combo) {
+                    $raffle->combos()->create($combo);
+                }
+            }
+        });
+
+        return redirect()->route('admin.raffles.index')->with('success', 'Rifa actualizada con éxito');
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(Raffle $raffle)
+    {
+        if ($raffle->tickets()->where('status', 'sold')->exists()) {
+            return back()->with('error', 'No se puede eliminar una rifa con boletos vendidos.');
+        }
+
+        $raffle->delete();
+        return redirect()->route('admin.raffles.index')->with('success', 'Rifa eliminada correctamente.');
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Raffle;
+use App\Http\Resources\ComboResource;
 use App\Http\Resources\TicketResource;
 use App\Http\Resources\RaffleResource;
 use Illuminate\Http\Request;
@@ -24,10 +25,12 @@ class RaffleApiController extends Controller
     public function show($id)
     {
         $raffle = Raffle::with(['combos'])->findOrFail($id);
+        $raffle->combos->each->setRelation('raffle', $raffle);
         
         return response()->json([
-            'raffle' => new RaffleResource($raffle),
-            'tickets' => TicketResource::collection($raffle->tickets()->orderBy('number', 'asc')->get()),
+            'raffle' => (new RaffleResource($raffle))->resolve(request()),
+            'tickets' => TicketResource::collection($raffle->tickets()->orderBy('number', 'asc')->get())->resolve(request()),
+            'combos' => ComboResource::collection($raffle->combos)->resolve(request()),
         ]);
     }
 

@@ -59,4 +59,12 @@ class RafflePolicy
     {
         return false;
     }
+
+    /**
+     * Determine whether the user can execute a draw.
+     */
+    public function execute(User $user, Raffle $raffle): bool
+    {
+        return $user->role === 'admin';
+    }
 }

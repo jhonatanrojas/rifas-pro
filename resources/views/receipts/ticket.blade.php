@@ -20,21 +20,21 @@
     <div class="container">
         <div class="header">
             <div class="logo">RIFFAS <span style="color:#000">SaaS</span></div>
-            <p>Comprobante Oficial de Participación</p>
+            <p>Official Participation Receipt</p>
         </div>
 
         <div class="content">
             <table>
                 <tr>
-                    <td><strong>Rifa:</strong></td>
+                    <td><strong>Raffle:</strong></td>
                     <td>{{ $order->raffle->title }}</td>
                 </tr>
                 <tr>
-                    <td><strong>ID Orden:</strong></td>
+                    <td><strong>Order ID:</strong></td>
                     <td>#{{ $order->id }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Nombre:</strong></td>
+                    <td><strong>Name:</strong></td>
                     <td>{{ $order->user->name }}</td>
                 </tr>
                 <tr>
@@ -42,28 +42,28 @@
                     <td>{{ $order->user->email }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Fecha de Pago:</strong></td>
+                    <td><strong>Payment Date:</strong></td>
                     <td>{{ now()->format('d/m/Y H:i') }}</td>
                 </tr>
             </table>
 
             <div style="margin-top: 40px; text-align: center;">
-                <p>TUS NÚMEROS COMPRADOS:</p>
+                <p>YOUR PURCHASED NUMBERS:</p>
                 <div class="tickets">
                     {{ $order->tickets->pluck('number')->implode(', ') }}
                 </div>
             </div>
 
             <div class="qr">
-                <img src="data:image/svg+xml;base64,{{ base64_encode(\SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')->size(150)->generate(route('raffles.show', $order->raffle->slug))) }}" />
-                <p style="font-size: 10px;">Verifica la veracidad de este ticket escaneando el código.</p>
+                <img src="data:image/svg+xml;base64,{{ base64_encode(\SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')->size(150)->generate($verificationUrl ?? route('raffles.show', $order->raffle->slug))) }}" />
+                <p style="font-size: 10px;">Scan the code to verify this receipt.</p>
             </div>
         </div>
 
         <div class="footer">
-            <p>Este es un documento oficial generado automáticamente.</p>
-            <p>Gracias por participar. ¡Mucha suerte!</p>
-            <p style="font-family: monospace; font-size: 8px;">HASH: {{ hash('sha256', $order->id . $order->created_at) }}</p>
+            <p>This is an automatically generated official document.</p>
+            <p>Thanks for participating.</p>
+            <p style="font-family: monospace; font-size: 8px;">HASH: {{ $receiptHash ?? hash('sha256', $order->id . $order->created_at) }}</p>
         </div>
     </div>
 </body>

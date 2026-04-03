@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Affiliate;
 use App\Models\Raffle;
 use App\Models\Payment;
 use App\Models\Order;
@@ -18,7 +19,11 @@ class AdminDashboardController extends Controller
         $dailyStats = [
             'sales_usd' => Order::where('status', 'paid')->where('currency', 'USD')->where('created_at', '>=', $today)->sum('total'),
             'sales_ves' => Order::where('status', 'paid')->where('currency', 'VES')->where('created_at', '>=', $today)->sum('total'),
-            'tickets_sold_today' => Order::where('status', 'paid')->where('created_at', '>=', $today)->sum('ticket_count'),
+            'tickets_sold_today' => DB::table('order_tickets')
+                ->join('orders', 'orders.id', '=', 'order_tickets.order_id')
+                ->where('orders.status', 'paid')
+                ->where('orders.created_at', '>=', $today)
+                ->count(),
             'pending_reviews' => Payment::where('status', 'pending')->count(),
         ];
 
@@ -39,11 +44,31 @@ class AdminDashboardController extends Controller
                 'progress' => $r->total_tickets > 0 ? round(($r->sold_count / $r->total_tickets) * 100, 2) : 0,
             ]);
 
+        $pendingPayments = Payment::with(['user', 'order.raffle'])
+            ->where('status', 'pending')
+            ->latest()
+            ->limit(8)
+            ->get();
+
+        $topAffiliates = Affiliate::with('user')
+            ->orderByDesc('total_earned')
+            ->limit(5)
+            ->get();
+
+        $salesByMethod = Payment::where('status', 'approved')
+            ->select('method', DB::raw('COUNT(*) as count'), DB::raw('SUM(amount) as total'))
+            ->groupBy('method')
+            ->orderByDesc('total')
+            ->get();
+
         return Inertia::render('Admin/Dashboard', [
             'dailyStats' => $dailyStats,
             'salesHistory' => $salesHistory,
             'rafflesProgress' => $rafflesProgress,
             'recentOrders' => Order::with(['user', 'raffle'])->latest()->limit(10)->get(),
+            'pendingPayments' => $pendingPayments,
+            'topAffiliates' => $topAffiliates,
+            'salesByMethod' => $salesByMethod,
         ]);
     }
 }

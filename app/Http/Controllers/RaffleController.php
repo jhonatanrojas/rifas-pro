@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\ComboResource;
+use App\Http\Resources\TicketResource;
 use App\Http\Resources\RaffleResource;
 use App\Models\Raffle;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class RaffleController extends Controller
@@ -27,9 +28,12 @@ class RaffleController extends Controller
     public function show(Raffle $raffle)
     {
         $raffle->load('combos');
+        $tickets = $raffle->tickets()->orderBy('number', 'asc')->get();
         
         return Inertia::render('Raffle/Show', [
-            'raffle' => new RaffleResource($raffle),
+            'raffle' => (new RaffleResource($raffle))->resolve(request()),
+            'tickets' => TicketResource::collection($tickets)->resolve(request()),
+            'combos' => ComboResource::collection($raffle->combos)->resolve(request()),
             'tickets_stats' => [
                 'available' => $raffle->tickets()->available()->count(),
                 'sold' => $raffle->tickets()->sold()->count(),
