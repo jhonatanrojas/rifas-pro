@@ -1,2 +1,7 @@
 *
 !.gitignore
+!raffles/
+raffles/*
+!raffles/car_demo.png
+!raffles/iphone_demo.png
+!raffles/ps5_demo.png
