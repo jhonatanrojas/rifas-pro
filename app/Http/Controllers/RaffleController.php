@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\RaffleResource;
 use App\Models\Raffle;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -9,29 +10,31 @@ use Inertia\Inertia;
 class RaffleController extends Controller
 {
     /**
-     * Mostrar la página de detalles de la rifa.
+     * Display a listing of active raffles.
      */
-    public function show($slug)
+    public function index()
     {
-        $raffle = Raffle::where('slug', $slug)
-            ->with(['combos' => function ($query) {
-                $query->where('is_active', true)->orderBy('quantity', 'asc');
-            }])
-            ->firstOrFail();
+        $raffles = Raffle::active()->with('combos')->paginate(12);
+        
+        return Inertia::render('Raffle/Index', [
+            'raffles' => RaffleResource::collection($raffles)
+        ]);
+    }
 
-        // Para evitar mandar miles de tickets enteros, mandamos solo un map de estado: [ number => status ]
-        // o envíamos su id y estado.
-        // Lo óptimo es mandar solo el ID, número y estado para construir la grilla.
-        // Si hay miles, solo mandaremos los status agrupados, pero por el momento traer el array es manejable
-        $tickets = $raffle->tickets()
-            ->select('id', 'number', 'status')
-            ->orderBy('number', 'asc')
-            ->get();
-
+    /**
+     * Display the specified raffle.
+     */
+    public function show(Raffle $raffle)
+    {
+        $raffle->load('combos');
+        
         return Inertia::render('Raffle/Show', [
-            'raffle' => $raffle,
-            'tickets' => $tickets,
-            'combos' => $raffle->combos,
+            'raffle' => new RaffleResource($raffle),
+            'tickets_stats' => [
+                'available' => $raffle->tickets()->available()->count(),
+                'sold' => $raffle->tickets()->sold()->count(),
+                'reserved' => $raffle->tickets()->reserved()->count(),
+            ]
         ]);
     }
 }

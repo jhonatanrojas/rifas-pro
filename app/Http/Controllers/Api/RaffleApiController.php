@@ -4,40 +4,67 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Raffle;
+use App\Http\Resources\TicketResource;
+use App\Http\Resources\RaffleResource;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use App\Services\TicketReservationService;
+use App\Actions\ConfirmPaymentAction;
+use App\Exceptions\Domain\InsufficientTicketsException;
 
 class RaffleApiController extends Controller
 {
     public function index()
     {
-        return Raffle::active()->with('combos')->get();
+        return RaffleResource::collection(Raffle::active()->with('combos')->get());
     }
 
     public function show($id)
     {
         $raffle = Raffle::with(['combos'])->findOrFail($id);
         
-        // Cargar los tickets y su estado
-        $tickets = $raffle->tickets()
-            ->select('id', 'number', 'status')
-            ->orderBy('number', 'asc')
-            ->get();
-            
         return response()->json([
-            'raffle' => $raffle,
-            'tickets' => $tickets,
-            'combos' => $raffle->combos,
+            'raffle' => new RaffleResource($raffle),
+            'tickets' => TicketResource::collection($raffle->tickets()->orderBy('number', 'asc')->get()),
         ]);
     }
 
-    public function reserve(Request $request, $id)
+    public function stats(Raffle $raffle)
     {
-        // ... Logica de reserva que se desarrollará en el Checkout
-        return response()->json(['message' => 'Reserve logic pending']);
+        return response()->json([
+            'sold' => $raffle->sold_count,
+            'available' => $raffle->total_tickets - $raffle->sold_count,
+            'percentage' => $raffle->total_tickets > 0 ? round(($raffle->sold_count / $raffle->total_tickets) * 100, 2) : 0,
+            'draw_date' => $raffle->draw_date,
+        ]);
     }
 
-    public function purchase(Request $request, $id)
+    public function searchTickets(Request $request, Raffle $raffle)
     {
+        $q = $request->query('q');
+        $status = $request->query('status');
+
+        $tickets = $raffle->tickets()
+            ->when($q, function($query) use ($q) {
+                return $query->where('number', 'like', "%{$q}%");
+            })
+            ->when($status, function($query) use ($status) {
+                return $query->where('status', $status);
+            })
+            ->limit(100)
+            ->get();
+
+        return TicketResource::collection($tickets);
+    }
+
+    public function purchase(
+        Request $request, 
+        $id,
+        TicketReservationService $reservationService,
+        ConfirmPaymentAction $paymentAction
+    ) {
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
@@ -53,7 +80,7 @@ class RaffleApiController extends Controller
         $user = $request->user();
 
         try {
-            \Illuminate\Support\Facades\DB::beginTransaction();
+            DB::beginTransaction();
 
             // 1. User Management (Guest logic)
             if (!$user) {
@@ -62,7 +89,7 @@ class RaffleApiController extends Controller
                     [
                         'name' => $request->name,
                         'phone' => $request->phone,
-                        'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(16))
+                        'password' => Hash::make(Str::random(16))
                     ]
                 );
             } else {
@@ -72,104 +99,54 @@ class RaffleApiController extends Controller
                 }
             }
 
-            // 2. Select Tickets
+            // 2. Preparar DTO de Reserva
             $quantity = (int) $request->quantity;
-            $tickets = collect();
-
+            $manualTickets = null;
             if ($request->has('manual_tickets') && $request->manual_tickets) {
                 $numbers = json_decode($request->manual_tickets, true);
                 if (is_array($numbers) && count($numbers) > 0) {
-                    $tickets = $raffle->tickets()
-                        ->whereIn('number', $numbers)
-                        ->where('status', 'available')
-                        ->lockForUpdate()
-                        ->get();
-
-                    if ($tickets->count() !== count($numbers)) {
-                        return response()->json(['message' => 'Algunos tickets seleccionados ya no están disponibles.'], 422);
-                    }
+                    $manualTickets = $numbers;
                     $quantity = count($numbers);
                 }
-            } else {
-                $tickets = $raffle->tickets()
-                    ->where('status', 'available')
-                    ->inRandomOrder()
-                    ->limit($quantity)
-                    ->lockForUpdate()
-                    ->get();
-
-                if ($tickets->count() < $quantity) {
-                    return response()->json(['message' => 'No hay suficientes tickets disponibles para la cantidad solicitada.'], 422);
-                }
             }
 
-            // 3. Security Check: Calculate real total
-            $rafflePrice = $raffle->ticket_price;
-            $subtotal = $quantity * $rafflePrice;
-            $discount = 0;
-            
-            $combos = $raffle->combos()->orderByDesc('quantity')->get();
-            foreach ($combos as $combo) {
-                if ($quantity >= $combo->quantity) {
-                    $comboSubtotal = $combo->quantity * $rafflePrice;
-                    $discountPerCombo = $comboSubtotal - $combo->price;
-                    $comboMultiplier = floor($quantity / $combo->quantity);
-                    $discountC = $discountPerCombo * $comboMultiplier;
-                    if ($discountC > $discount) {
-                        $discount = $discountC;
-                    }
-                }
-            }
-            $calculatedTotal = $subtotal - $discount;
+            $reserveDto = new \App\DTOs\ReserveTicketsDTO(
+                raffleId: $raffle->id,
+                userId: $user->id,
+                quantity: $quantity,
+                manualTickets: $manualTickets
+            );
 
-            // 4. Create Order
-            $order = \App\Models\Order::create([
-                'user_id' => $user->id,
-                'raffle_id' => $raffle->id,
-                'status' => 'pending',
-                'subtotal' => $subtotal,
-                'discount' => $discount,
-                'total' => $calculatedTotal,
-                'currency' => $raffle->currency,
-            ]);
+            // 3. Ejecutar Reserva
+            $order = $reservationService->reserve($reserveDto);
 
-            // 5. Update and attach Tickets
-            $ticketIds = $tickets->pluck('id')->toArray();
-            $order->tickets()->attach($ticketIds);
-            
-            \App\Models\Ticket::whereIn('id', $ticketIds)->update([
-                'status' => 'reserved',
-                'user_id' => $user->id,
-                'order_id' => $order->id,
-                'reserved_at' => now(),
-                'reserved_until' => now()->addHours(12) // User has 12 hours window before cancelation
-            ]);
+            // 4. Preparar DTO de Confirmación de Pago
+            $paymentDto = new \App\DTOs\ConfirmPaymentDTO(
+                orderId: $order->id,
+                method: $request->payment_method,
+                amount: (float) $order->total,
+                currency: $order->currency,
+                referenceNumber: $request->reference,
+                receiptImage: $request->file('proof')
+            );
 
-            // Update global stats (sold tracking approx, can be refined to 'reserved_count')
-            //$raffle->increment('sold_count', $quantity); // Solo incrementar sold cuando se apruebe.
+            // 5. Ejecutar Acción de Confirmar Pago
+            $paymentAction->execute($paymentDto);
 
-            // 6. Handle Image Proof
-            $path = $request->file('proof')->store('receipts', 'public');
-
-            // 7. Create Payment record attached to Order
-            $order->payment()->create([
-                'method' => strtolower($request->payment_method),
-                'amount' => $calculatedTotal,
-                'currency' => $raffle->currency,
-                'reference_number' => $request->reference,
-                'receipt_image_path' => $path,
-                'status' => 'pending'
-            ]);
-
-            \Illuminate\Support\Facades\DB::commit();
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Compra registrada y en verificación'
             ]);
 
+        } catch (InsufficientTicketsException $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => $e->getMessage()
+            ], 422);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\DB::rollBack();
+            DB::rollBack();
             return response()->json([
                 'message' => 'Error al procesar el pago: ' . $e->getMessage()
             ], 500);

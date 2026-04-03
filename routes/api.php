@@ -14,3 +14,10 @@ Route::get('/raffles/{id}', [RaffleApiController::class, 'show']);
 Route::post('/raffles/{id}/reserve', [RaffleApiController::class, 'reserve']);
 Route::post('/raffles/{id}/purchase', [RaffleApiController::class, 'purchase']);
 Route::get('/raffles/{id}/winners', [RaffleApiController::class, 'winners']);
+Route::get('/raffles/{raffle}/numbers/search', [RaffleApiController::class, 'searchTickets'])->middleware('throttle:search');
+Route::post('/coupons/validate', [\App\Http\Controllers\Api\CouponController::class, 'validate']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/waitlist/{raffle}/join', [\App\Http\Controllers\WaitlistController::class, 'join']);
+    Route::delete('/waitlist/{raffle}/leave', [\App\Http\Controllers\WaitlistController::class, 'leave']);
+});

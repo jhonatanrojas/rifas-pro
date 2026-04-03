@@ -14,18 +14,27 @@ class CheckoutIntegrationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected User $admin;
+    protected Raffle $raffle;
+
     protected function setUp(): void
     {
         parent::setUp();
+        // Create an admin user to be the owner
+        $this->admin = User::factory()->create(['role' => 'admin']);
+
         // Set up base Raffle
         $this->raffle = Raffle::create([
             'title' => 'Test Raffle',
+            'slug' => 'test-raffle',
             'description' => 'Test Desc',
+            'prize_description' => 'A great prize',
             'ticket_price' => 10,
             'currency' => 'USD',
             'total_tickets' => 100,
             'status' => 'active',
             'draw_date' => now()->addDays(7),
+            'owner_id' => $this->admin->id,
         ]);
 
         // Generate tickets

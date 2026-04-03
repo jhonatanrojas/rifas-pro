@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'whatsapp' => [
+        'provider' => env('WHATSAPP_PROVIDER', 'callmebot'),
+        'callmebot' => [
+            'phone'  => env('CALLMEBOT_PHONE'),
+            'apikey' => env('CALLMEBOT_API_KEY'),
+        ]
+    ]
+
 ];

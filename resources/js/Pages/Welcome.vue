@@ -107,10 +107,10 @@ const formatMoney = (amount, currency = 'USD') => {
                 </p>
                 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-                    <a href="#rifas" class="inline-flex w-full sm:w-auto items-center justify-center px-10 py-4 text-lg font-bold text-white transition-all bg-brand-600 rounded-xl hover:bg-brand-500 hover:scale-105 hover:shadow-xl hover:shadow-brand-500/30">
+                    <Link :href="route('raffles.index')" class="inline-flex w-full sm:w-auto items-center justify-center px-10 py-4 text-lg font-bold text-white transition-all bg-brand-600 rounded-xl hover:bg-brand-500 hover:scale-105 hover:shadow-xl hover:shadow-brand-500/30">
                         Participar Ahora
                         <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                    </a>
+                    </Link>
                     <a href="#como-funciona" class="inline-flex items-center justify-center px-8 py-4 text-base font-medium text-white transition-all duration-200 bg-surface-lighter border border-surface-300/20 rounded-full hover:bg-surface-light hover:border-surface-300/40 w-full sm:w-auto">
                         ¿Cómo funciona?
                     </a>
@@ -152,7 +152,7 @@ const formatMoney = (amount, currency = 'USD') => {
                     <p class="mt-2 text-surface-400">Las oportunidades más calientes del momento.</p>
                 </div>
                 <div class="hidden sm:block">
-                    <span class="text-sm font-medium text-brand-400 cursor-pointer hover:text-brand-300">Ver todos &rarr;</span>
+                    <Link :href="route('raffles.index')" class="text-sm font-medium text-brand-400 cursor-pointer hover:text-brand-300">Ver todos &rarr;</Link>
                 </div>
             </div>
 

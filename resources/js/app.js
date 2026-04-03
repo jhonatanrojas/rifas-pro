@@ -8,6 +8,8 @@ import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import Toast from "vue-toastification";
 import "vue-toastification/dist/index.css";
 
+import { MotionPlugin } from '@vueuse/motion';
+
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
@@ -21,6 +23,7 @@ createInertiaApp({
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
+            .use(MotionPlugin)
             .use(Toast, {
                 transition: "Vue-Toastification__bounce",
                 maxToasts: 3,
@@ -32,6 +35,6 @@ createInertiaApp({
             .mount(el);
     },
     progress: {
-        color: '#4B5563',
+        color: '#3b82f6',
     },
 });
